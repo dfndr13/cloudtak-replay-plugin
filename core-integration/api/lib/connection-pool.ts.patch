@@ -1,0 +1,53 @@
+diff --git a/api/lib/connection-pool.ts b/api/lib/connection-pool.ts
+index ac9dfff2d..a39a60f1e 100644
+--- a/api/lib/connection-pool.ts
++++ b/api/lib/connection-pool.ts
+@@ -3,6 +3,7 @@ import fs from 'node:fs';
+ import path from 'node:path';
+ import ImportControl, { ImportSourceEnum } from './control/import.js';
+ import Sinks from './sinks.js';
++import Recorder from './replay-recorder.js';
+ import Config from './config.js';
+ import { randomUUID } from 'node:crypto';
+ import Modeler from '@openaddresses/batch-generic';
+@@ -78,6 +79,7 @@ export class ConnectionClient {
+ export default class ConnectionPool extends Map<number | string, ConnectionClient> {
+     config: Config;
+     sinks: Sinks;
++    recorder: Recorder;
+     importControl: ImportControl;
+     closed: boolean;
+ 
+@@ -98,6 +100,7 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+         this.importControl = new ImportControl(config);
+ 
+         this.sinks = new Sinks(config);
++        this.recorder = new Recorder(config);
+ 
+         this.pingInterval = setInterval(() => {
+             try {
+@@ -234,8 +237,11 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+     async cots(
+         conn: ConnectionConfig,
+         cots: CoT[],
++        opts: { replay?: boolean } = {},
+     ) {
+         try {
++            if (this.recorder.active()) await this.recorder.record(conn, cots);
++
+             if (conn instanceof ProfileConnConfig) {
+                 for (const cot of cots) {
+                     // While I am reluncant to override user-intent, client's don't necessarily
+@@ -248,6 +254,12 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+ 
+                     const feat = await CoTParser.to_geojson(cot);
+ 
++                    // Always set explicitly (not just when true): the client merges
++                    // updated properties onto the stored feature (Object.assign), so an
++                    // omitted key here would let a stale `replay: true` from an earlier
++                    // playback survive on a CoT UID that's now genuinely live.
++                    (feat.properties as Record<string, unknown>).replay = opts.replay === true;
++
+                     try {
+                         if (conn instanceof ProfileConnConfig && feat.properties && feat.properties.chat) {
+                             const myUid = `ANDROID-CloudTAK-${conn.id}`;

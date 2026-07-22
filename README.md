@@ -8,10 +8,6 @@ This repo is a **standalone packaging** of the plugin's source, meant as a
 clean reference/distribution point — it is not itself a runnable CloudTAK
 instance. It was developed against `dfpc-coe/CloudTAK`.
 
-If you want to actually run it rather than integrate it by hand, a full
-working checkout of CloudTAK with this plugin already applied lives on the
-[`replay-plugin` branch of `dfndr13/CloudTAK`](https://github.com/dfndr13/CloudTAK/tree/replay-plugin).
-
 ## What's in this repo
 
 - **`plugin/replay/`** — the plugin itself: a self-contained CloudTAK

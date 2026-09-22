@@ -1,24 +1,22 @@
-diff --git a/api/lib/connection-pool.ts b/api/lib/connection-pool.ts
-index ac9dfff2d..a39a60f1e 100644
---- a/api/lib/connection-pool.ts
-+++ b/api/lib/connection-pool.ts
-@@ -3,6 +3,7 @@ import fs from 'node:fs';
- import path from 'node:path';
- import ImportControl, { ImportSourceEnum } from './control/import.js';
+--- a/api/stateful/lib/connection-pool.ts
++++ b/api/stateful/lib/connection-pool.ts
+@@ -4,6 +4,7 @@
+ import ImportControl, { ImportSourceEnum } from '../../common/control/import.js';
  import Sinks from './sinks.js';
+ import type ConfigStateful from '../config.js';
 +import Recorder from './replay-recorder.js';
- import Config from './config.js';
  import { randomUUID } from 'node:crypto';
  import Modeler from '@openaddresses/batch-generic';
-@@ -78,6 +79,7 @@ export class ConnectionClient {
+ import { Connection } from '../../common/schema.js';
+@@ -126,6 +127,7 @@
  export default class ConnectionPool extends Map<number | string, ConnectionClient> {
-     config: Config;
+     config: ConfigStateful;
      sinks: Sinks;
 +    recorder: Recorder;
      importControl: ImportControl;
      closed: boolean;
- 
-@@ -98,6 +100,7 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+     pending: Map<number | string, Promise<ConnectionClient>>;
+@@ -148,6 +150,7 @@
          this.importControl = new ImportControl(config);
  
          this.sinks = new Sinks(config);
@@ -26,28 +24,32 @@ index ac9dfff2d..a39a60f1e 100644
  
          this.pingInterval = setInterval(() => {
              try {
-@@ -234,8 +237,11 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+@@ -286,8 +289,16 @@
      async cots(
          conn: ConnectionConfig,
          cots: CoT[],
 +        opts: { replay?: boolean } = {},
      ) {
          try {
-+            if (this.recorder.active()) await this.recorder.record(conn, cots);
++            // Replayed CoTs (opts.replay) are a rewritten-timestamp preview of
++            // already-recorded history, not new live traffic - never feed them
++            // back into a concurrently active recording of a *different*
++            // session, or a recording would end up with looped-back playback
++            // data instead of what's actually happening live.
++            if (this.recorder.active() && !opts.replay) await this.recorder.record(conn, cots);
 +
              if (conn instanceof ProfileConnConfig) {
                  for (const cot of cots) {
                      // While I am reluncant to override user-intent, client's don't necessarily
-@@ -248,6 +254,12 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
- 
-                     const feat = await CoTParser.to_geojson(cot);
+@@ -310,6 +321,11 @@
+                     // device's CoT time so live ordering matches what clients get on refresh
+                     let storedCreated: string | undefined;
  
 +                    // Always set explicitly (not just when true): the client merges
 +                    // updated properties onto the stored feature (Object.assign), so an
 +                    // omitted key here would let a stale `replay: true` from an earlier
 +                    // playback survive on a CoT UID that's now genuinely live.
 +                    (feat.properties as Record<string, unknown>).replay = opts.replay === true;
-+
+ 
                      try {
-                         if (conn instanceof ProfileConnConfig && feat.properties && feat.properties.chat) {
-                             const myUid = `ANDROID-CloudTAK-${conn.id}`;
+                         if (conn instanceof ProfileConnConfig && feat.properties && feat.properties.chat && receiptStatus) {

@@ -10,10 +10,10 @@ import { Type } from '@sinclair/typebox';
 import { sql } from 'drizzle-orm';
 import Schema from '@openaddresses/batch-schema';
 import Err from '@openaddresses/batch-error';
-import Auth from '../lib/auth.js';
-import Config from '../lib/config.js';
+import Auth from '../../common/auth.js';
+import type ConfigStateless from '../config.js';
 import { CoTParser } from '@tak-ps/node-cot';
-import { bootstrapReplayTables } from '../lib/replay-recorder.js';
+import { bootstrapReplayTables } from '../../stateful/lib/replay-recorder.js';
 import Player from '../lib/replay-player.js';
 
 // Event-scoped CoT recording/playback. Owns replay_events + replay_cot via
@@ -30,14 +30,24 @@ import Player from '../lib/replay-player.js';
 // this route file, NOT attached to config - it doesn't need to hook a live
 // stream like Recorder does, it's only ever driven by these routes. It
 // broadcasts replayed CoT to the requesting user's own live browser
-// session only (config.conns.cots(), no tak.write()) - private preview,
-// nothing sent to real TAK Server, nobody else sees it unless they import
-// the exported event file into their own CloudTAK and replay it locally.
+// session only (config.hub.submitCots() with ensureProfile, no tak.write()) -
+// private preview, nothing sent to real TAK Server, nobody else sees it
+// unless they import the exported event file into their own CloudTAK and
+// replay it locally.
 
 let playerInstance: Player | null = null;
-function getPlayer(config: Config): Player {
+function getPlayer(config: ConfigStateless): Player {
     if (!playerInstance) playerInstance = new Player(config);
     return playerInstance;
+}
+
+// config.recorder is only present in combined 'both' mode (see ConfigStateless) -
+// there's no Hub RPC equivalent for recording control in a true stateful/stateless
+// split. This deployment only ever runs 'both', so the guard is defensive typing,
+// not an expected runtime path.
+function getRecorder(config: ConfigStateless) {
+    if (!config.recorder) throw new Err(503, null, 'Replay recording is not available on this server');
+    return config.recorder;
 }
 
 interface ReplayEventRow {
@@ -67,7 +77,7 @@ const Category = Type.Union([
     Type.Literal('other'),
 ]);
 
-export default async function router(schema: Schema, config: Config) {
+export default async function router(schema: Schema, config: ConfigStateless) {
     await bootstrapReplayTables(config);
 
     // --- Recording -----------------------------------------------------
@@ -83,7 +93,7 @@ export default async function router(schema: Schema, config: Config) {
     }, async (req, res) => {
         try {
             const user = await Auth.as_user(config, req);
-            const id = await config.conns.recorder.start(req.body.name, user.email);
+            const id = await getRecorder(config).start(req.body.name, user.email);
             res.json({ id, name: req.body.name });
         } catch (err) {
             Err.respond(err, res);
@@ -98,8 +108,8 @@ export default async function router(schema: Schema, config: Config) {
     }, async (req, res) => {
         try {
             await Auth.as_user(config, req);
-            const wasActive = config.conns.recorder.active();
-            await config.conns.recorder.stop();
+            const wasActive = getRecorder(config).active();
+            await getRecorder(config).stop();
             res.json({ stopped: wasActive });
         } catch (err) {
             Err.respond(err, res);
@@ -113,10 +123,10 @@ export default async function router(schema: Schema, config: Config) {
     }, async (req, res) => {
         try {
             await Auth.as_user(config, req);
-            await config.conns.recorder.refresh();
+            await getRecorder(config).refresh();
             res.json({
-                active: config.conns.recorder.active(),
-                event: config.conns.recorder.activeEvent || undefined,
+                active: getRecorder(config).active(),
+                event: getRecorder(config).activeEvent || undefined,
             });
         } catch (err) {
             Err.respond(err, res);
@@ -159,14 +169,14 @@ export default async function router(schema: Schema, config: Config) {
         try {
             await Auth.as_user(config, req);
 
-            if (!config.conns.recorder.active()) {
+            if (!getRecorder(config).active()) {
                 res.json({ recorded: false });
                 return;
             }
 
             const cot = await CoTParser.from_geojson(req.body as Parameters<typeof CoTParser.from_geojson>[0]);
             const xml = await CoTParser.to_xml(cot);
-            await config.conns.recorder.recordDirect(req.body.id, cot.type(), xml);
+            await getRecorder(config).recordDirect(req.body.id, cot.type(), xml);
 
             res.json({ recorded: true });
         } catch (err) {
@@ -189,12 +199,12 @@ export default async function router(schema: Schema, config: Config) {
         try {
             await Auth.as_user(config, req);
 
-            if (!config.conns.recorder.active()) {
+            if (!getRecorder(config).active()) {
                 res.json({ recorded: false });
                 return;
             }
 
-            await config.conns.recorder.recordRemoval(req.params.id);
+            await getRecorder(config).recordRemoval(req.params.id);
 
             res.json({ recorded: true });
         } catch (err) {

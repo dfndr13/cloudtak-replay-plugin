@@ -12,9 +12,9 @@
 
 import crypto from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import Config from './config.js';
+import type Config from '../../common/config.js';
 import CoT, { CoTParser } from '@tak-ps/node-cot';
-import ConnectionConfig from './connection-config.js';
+import type ConnectionConfig from '../../common/connection-config.js';
 
 export interface ReplayEventRow {
     id: number;

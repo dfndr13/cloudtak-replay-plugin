@@ -1,0 +1,11 @@
+--- a/api/index.ts
++++ b/api/index.ts
+@@ -101,7 +101,7 @@
+     // is current before the stateless side connects
+     const stateful = mode !== 'api' ? await ConfigStateful.env(envArgs) : undefined;
+     const stateless = mode !== 'hub'
+-        ? await ConfigStateless.env(envArgs, stateful ? { hub: stateful.hub } : {})
++        ? await ConfigStateless.env(envArgs, stateful ? { hub: stateful.hub, recorder: stateful.conns.recorder } : {})
+         : undefined;
+ 
+     await server({ stateful, stateless });

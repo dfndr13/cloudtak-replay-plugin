@@ -178,6 +178,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { std } from '../../src/std.ts';
 import FeatureManager from '../../src/base/feature.ts';
+import { db } from '../../src/database.ts';
 import { FeatureVisibility } from '../../src/stores/modules/feature-visibility.ts';
 import ProfileConfig from '../../src/base/profile.ts';
 import { useMapStore } from '../../src/stores/map.ts';
@@ -264,6 +265,14 @@ onMounted(async () => {
 onUnmounted(() => {
     if (pollHandle) clearInterval(pollHandle);
     if (session.value) {
+        // Tell the server this session is done, same as stopPlayback() -
+        // otherwise it sits idle server-side until SESSION_IDLE_TIMEOUT_MS
+        // reaps it. Fire-and-forget: the component is already tearing down,
+        // there's nothing left here to await the response for.
+        std(`/api/replay/session/${session.value}/stop`, { method: 'POST' }).catch(() => {
+            // Best-effort - the idle-timeout reaper on the server is the
+            // backstop if this never lands.
+        });
         // Null this out (not just clearInterval) so a poll tick that's
         // already mid-flight - past pollStatus(), about to call
         // hideNewLiveFeatures() - bails at the session.value guard below
@@ -290,6 +299,17 @@ async function startRecording() {
     await std('/api/replay/record/start', { method: 'POST', body: { name: newEventName.value } });
     newEventName.value = '';
     await refreshRecordingStatus();
+
+    // The server is already recording at this point (the POST above
+    // succeeded) - snapshot everything currently on the map now, so
+    // pre-existing features have an initial row in this recording instead
+    // of only ever being captured if something happens to update them
+    // during the window.
+    try {
+        await mapStore.worker.db.snapshotForRecording();
+    } catch (err) {
+        console.warn('Failed to snapshot pre-existing features into new recording:', err);
+    }
 }
 
 async function stopRecording() {
@@ -303,10 +323,36 @@ async function resolveSelfUid(): Promise<string | null> {
     return username?.value ? `ANDROID-CloudTAK-${username.value}` : null;
 }
 
+// FeatureManager.list() only covers the plain (non-Mission) feature table.
+// Mission-linked content (anything drawn/shared into an active Mission, or
+// synced from one) lives in its own subscription_feature table instead - see
+// atlas-database.ts's add(), which stores it there with skipSave: true so it
+// never reaches the plain table at all. Without merging both in, replay's
+// hide/show sweep is structurally blind to Mission content: it never gets
+// hidden at playback start and never gets confirmed as belonging to the
+// session, so it just sits visible throughout regardless of replay state.
+async function listAllLive() {
+    const [features, missionFeatures] = await Promise.all([
+        FeatureManager.list(),
+        db.subscription_feature.toCollection().toArray(),
+    ]);
+    return [...features, ...missionFeatures];
+}
+
 async function hideLiveFeatures() {
     selfUid = await resolveSelfUid();
-    const live = await FeatureManager.list();
-    hiddenLiveIds = live.map((f) => f.id).filter((id) => id !== selfUid);
+    const live = await listAllLive();
+
+    // FeatureVisibility is a single flat store shared with the rest of the
+    // app (e.g. Mission Layers' own hide/show toggle) - it has no concept of
+    // *why* a feature is hidden. hiddenLiveIds must only ever contain UIDs
+    // replay itself is responsible for hiding, or restoreLiveFeatures() will
+    // blindly unhide anything that happened to already be hidden for an
+    // unrelated reason (e.g. a Mission Layer the user had toggled off)
+    // when playback started.
+    hiddenLiveIds = live
+        .map((f) => f.id)
+        .filter((id) => id !== selfUid && !FeatureVisibility.isFeatureHidden(id));
     if (hiddenLiveIds.length) FeatureVisibility.setFeaturesHidden(hiddenLiveIds, true);
 
     // Fresh session: no UID is exempt yet, and every feature's current
@@ -316,17 +362,30 @@ async function hideLiveFeatures() {
 }
 
 async function hideNewLiveFeatures() {
-    const live = await FeatureManager.list();
+    const live = await listAllLive();
 
     // A feature only belongs to this session once its CoT generation time
     // has actually moved past the baseline - that's proof a new message
     // landed while we were watching, not just a leftover replay:true flag.
     for (const f of live) {
-        if (f.properties.replay !== true) continue;
         const time = String(f.properties.time || '');
         if (lastSeenTime.get(f.id) === time) continue;
-        lastSeenTime.set(f.id, time);
-        sessionReplayUids.add(f.id);
+
+        if (f.properties.replay === true) {
+            lastSeenTime.set(f.id, time);
+            sessionReplayUids.add(f.id);
+        } else if (sessionReplayUids.has(f.id)) {
+            // This UID was previously confirmed as belonging to the replay
+            // session but just received a genuinely live (non-replay)
+            // update instead - e.g. an asset still reporting live position
+            // while an earlier window of its own history is being replayed.
+            // It no longer belongs to the session; release it so the newIds
+            // check below can hide it again, or it would stay visible -
+            // indistinguishable from replay content - for the rest of
+            // playback.
+            lastSeenTime.set(f.id, time);
+            sessionReplayUids.delete(f.id);
+        }
     }
 
     // Replay-origin features must never be hidden - even if their UID was
@@ -339,9 +398,13 @@ async function hideNewLiveFeatures() {
         hiddenLiveIds = hiddenLiveIds.filter((id) => !toUnhide.includes(id));
     }
 
+    // Same rule as hideLiveFeatures(): only track UIDs replay is newly
+    // hiding here, so a feature already hidden for an unrelated reason
+    // never ends up in hiddenLiveIds and never gets force-unhidden by
+    // restoreLiveFeatures() at session end.
     const newIds = live
         .map((f) => f.id)
-        .filter((id) => id !== selfUid && !hiddenLiveIds.includes(id) && !sessionReplayUids.has(id));
+        .filter((id) => id !== selfUid && !hiddenLiveIds.includes(id) && !sessionReplayUids.has(id) && !FeatureVisibility.isFeatureHidden(id));
     if (newIds.length) {
         FeatureVisibility.setFeaturesHidden(newIds, true);
         hiddenLiveIds.push(...newIds);

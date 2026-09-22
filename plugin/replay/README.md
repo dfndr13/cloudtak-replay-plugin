@@ -173,18 +173,6 @@ window.
 
 ## Known issues
 
-- **Export/import loses deletion markers.** The export route's `SELECT` and
-  the `ReplayCotExportRow` shape don't include `kind`, and the import
-  route's `INSERT` doesn't set it either (it defaults to `'cot'`). Playback
-  now correctly turns a `kind = 'removed'` row into a disappearance — but an
-  exported-then-reimported recording has already lost every such row, so an
-  imported replay can't show a feature disappearing even when the original
-  recording could.
-- **The UAS category checkbox does nothing.** `categorize()` accepts a `how`
-  parameter to distinguish a UAS (`how = 'm-u'`) from a piloted aircraft, but
-  every call site passes `undefined` — `how` isn't stored as its own column
-  (or otherwise recovered from the stored `cot_xml`), so every `a-*-A-*`
-  track files as `aircraft` regardless of the checkbox.
 - **No per-recording/per-session ownership check.** Every route
   authenticates the caller but doesn't check that they own the resource:
   any logged-in user can stop another user's active recording or delete any

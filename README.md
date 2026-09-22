@@ -55,6 +55,24 @@ write-up, including known issues.
 
 ## Changelog
 
+### v1.1.1
+
+Fixes the two known issues called out in v1.1.0:
+
+- **Fixed: export/import silently dropped deletion markers.** `kind` wasn't
+  part of the export `SELECT`/shape or the import `INSERT`, so an
+  exported-then-reimported `kind = 'removed'` row became an ordinary `'cot'`
+  row with empty `cot_xml` — even though local playback (since v1.1.0)
+  correctly turns a `'removed'` row into a disappearance. `kind` is now
+  carried through export and import (optional on import, defaulting to
+  `'cot'`, so older export files without the field still import cleanly).
+- **Fixed: the UAS category checkbox had no effect.** `categorize()`'s `how`
+  parameter (`how = 'm-u'` distinguishes a UAS from a piloted aircraft) was
+  hardcoded `undefined` at its only call site. Rather than add a column +
+  migration for one attribute that's already sitting in the stored row,
+  `how` is now pulled straight out of the recorded `cot_xml` with the same
+  regex-on-stored-XML approach already used for `time`/`stale`.
+
 ### v1.1.0
 
 Repackaged from the CloudTAK checkout's local `main` branch (13 commits,
@@ -135,13 +153,7 @@ never folded back into this repo. Net effect vs. v1.0.0:
   per-feature `replay` flag fix, poll race-condition fix, `publishStateAt`
   watermark fix (see below).
 
-**Known issues, not yet fixed in this release** (tracked for the next
-release — see `plugin/replay/README.md` for detail):
-- Export/import silently drops deletion markers (`kind` isn't in the export
-  SELECT or the import INSERT), so an imported recording can't show a
-  feature disappearing even though local playback now can.
-- The UAS category checkbox has no effect — `categorize()`'s `how` parameter
-  is always called as `undefined`, so every air track files as `aircraft`.
+Both known issues from this release were fixed in v1.1.1 above.
 
 ### v1.0.0
 

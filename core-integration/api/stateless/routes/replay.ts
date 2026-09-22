@@ -67,6 +67,7 @@ interface ReplayCotExportRow {
     recorded_at: string;
     sha256: string;
     cot_xml: string;
+    kind: string;
 }
 
 const Category = Type.Union([
@@ -415,7 +416,7 @@ export default async function router(schema: Schema, config: ConfigStateless) {
             const event = eventRows[0];
 
             const cotRows = await config.pg.execute(sql`
-                SELECT connection, source, uid, cot_type, recorded_at, sha256, cot_xml
+                SELECT connection, source, uid, cot_type, recorded_at, sha256, cot_xml, kind
                 FROM replay_cot WHERE event = ${req.params.eventid}
                 ORDER BY recorded_at ASC
             `) as unknown as ReplayCotExportRow[];
@@ -481,6 +482,11 @@ export default async function router(schema: Schema, config: ConfigStateless) {
                 recorded_at: Type.String(),
                 sha256: Type.String(),
                 cot_xml: Type.String(),
+                // Optional: an export file produced before this field existed
+                // (format cloudtak-replay-export-v1, pre-kind) won't have it -
+                // default to 'cot' below, same as the column's own DB default,
+                // rather than rejecting older export files outright.
+                kind: Type.Optional(Type.String()),
             })),
         }),
         res: Type.Any(),
@@ -505,9 +511,9 @@ export default async function router(schema: Schema, config: ConfigStateless) {
                 const batch = req.body.cots.slice(i, i + batchSize);
                 for (const cot of batch) {
                     await config.pg.execute(sql`
-                        INSERT INTO replay_cot (event, connection, source, uid, cot_type, recorded_at, sha256, cot_xml)
+                        INSERT INTO replay_cot (event, connection, source, uid, cot_type, recorded_at, sha256, cot_xml, kind)
                         VALUES (${newEventId}, ${cot.connection ?? null}, ${cot.source}, ${cot.uid},
-                                ${cot.cot_type ?? null}, ${cot.recorded_at}, ${cot.sha256}, ${cot.cot_xml})
+                                ${cot.cot_type ?? null}, ${cot.recorded_at}, ${cot.sha256}, ${cot.cot_xml}, ${cot.kind ?? 'cot'})
                     `);
                 }
             }

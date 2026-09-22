@@ -37,6 +37,16 @@ function categorize(cotType: string, how?: string): ReplayCategory {
     return 'other';
 }
 
+// categorize()'s `how` distinguishes a UAS (how="m-u") from a piloted
+// aircraft. There's no separate `how` column - it's cheap to pull straight
+// out of the same stored cot_xml already being parsed for time/stale below,
+// same regex-on-stored-XML pattern as computeStaleOffsetMs(), rather than
+// adding a column + migration for one attribute already sitting in the row.
+function extractHow(xml: string): string | undefined {
+    const howMatch = xml.match(/\show="([^"]*)"/);
+    return howMatch ? howMatch[1] : undefined;
+}
+
 // Pulled out of rewriteTimestamps() so publishStateAt() can also use the
 // original stale window to decide whether a row has already expired as of
 // virtualNow (see the staleness check in publishStateAt), without duplicating
@@ -291,7 +301,7 @@ export default class Player {
                 continue;
             }
 
-            const category = categorize(row.cot_type || '', undefined);
+            const category = categorize(row.cot_type || '', extractHow(row.cot_xml));
             if (!s.activeCategories.has(category)) continue;
 
             // Defense in depth: any other unexpected/malformed cot_xml (e.g. from

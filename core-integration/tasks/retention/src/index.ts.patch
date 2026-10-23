@@ -1,0 +1,13 @@
+diff --git a/tasks/retention/src/index.ts b/tasks/retention/src/index.ts
+index aacdb87f6..f8b5d9d90 100644
+--- a/tasks/retention/src/index.ts
++++ b/tasks/retention/src/index.ts
+@@ -15,7 +15,7 @@ async function runOnce(): Promise<void> {
+     }
+ 
+     const url = new URL('/api/config', apiUrl);
+-    url.searchParams.set('keys', 'retention::enabled,retention::connection-feature::enabled,retention::chat::enabled,retention::import::enabled,retention::feature::enabled');
++    url.searchParams.set('keys', 'retention::enabled,retention::connection-feature::enabled,retention::chat::enabled,retention::import::enabled,retention::feature::enabled,retention::replay::enabled');
+ 
+     const res = await fetch(url, {
+         headers: {

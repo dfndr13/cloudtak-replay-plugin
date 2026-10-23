@@ -1,0 +1,15 @@
+diff --git a/api/common/hub/index.ts b/api/common/hub/index.ts
+index 9621c36cd..ba9833d46 100644
+--- a/api/common/hub/index.ts
++++ b/api/common/hub/index.ts
+@@ -53,6 +53,10 @@ export type SubmitCotsRequest = {
+     broadcast?: boolean;
+     ensureProfile?: boolean;
+     ifPooled?: boolean;
++    // Tags every emitted feature's properties.replay - set explicitly (see
++    // ConnectionPool.cots()) so a stale replay:true from an earlier playback
++    // never survives on a CoT UID that's now genuinely live.
++    replay?: boolean;
+ };
+ 
+ export interface HubClient {

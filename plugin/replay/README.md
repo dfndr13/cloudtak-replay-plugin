@@ -58,7 +58,7 @@ a feature linked to a Mission but stored via `subscription_feature` — TAK
 Server only rebroadcasts a "mission changed" notification over the
 connection, never the feature's own CoT, so `Recorder.record()` never
 captures its actual content either. To capture both cases, the Web Worker
-that owns local feature state (`api/web/src/workers/atlas-database.ts`,
+that owns local feature state (`app/src/workers/atlas-database.ts`,
 `AtlasDatabase`) direct-writes to the recording via two routes on
 `api/stateless/routes/replay.ts`:
 

@@ -69,8 +69,12 @@ export async function bootstrapReplayTables(config: Config): Promise<void> {
     }
 }
 
-function contentHash(xml: string): string {
-    const normalized = xml.replace(/\s(?:time|start|stale)="[^"]*"/g, '');
+export function contentHash(xml: string): string {
+    // _flow-tags_ carries per-hop/per-parse timestamps (TAK Server, node-cot),
+    // so it differs between copies of an otherwise identical CoT.
+    const normalized = xml
+        .replace(/<_flow-tags_\b[^>]*(?:\/>|>[\s\S]*?<\/_flow-tags_>)/g, '')
+        .replace(/\s(?:time|start|stale)="[^"]*"/g, '');
     return crypto.createHash('sha256').update(normalized, 'utf-8').digest('hex');
 }
 

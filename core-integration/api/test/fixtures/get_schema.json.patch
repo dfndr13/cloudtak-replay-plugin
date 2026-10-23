@@ -1,0 +1,96 @@
+diff --git a/api/test/fixtures/get_schema.json b/api/test/fixtures/get_schema.json
+index 4bd8cfce7..6e0ea8d6f 100644
+--- a/api/test/fixtures/get_schema.json
++++ b/api/test/fixtures/get_schema.json
+@@ -1953,5 +1953,90 @@
+         "body": false,
+         "query": true,
+         "res": false
++    },
++    "POST /replay/record/start": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/record/stop": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "GET /replay/record/status": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/record/feature": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "DELETE /replay/record/feature/:id": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "GET /replay/event": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/event/:eventid/play": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/pause": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/resume": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/stop": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/back": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/seek": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/session/:sessionid/category": {
++        "body": true,
++        "query": false,
++        "res": true
++    },
++    "GET /replay/session/:sessionid/status": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "GET /replay/event/:eventid/export": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "DELETE /replay/event/:eventid": {
++        "body": false,
++        "query": false,
++        "res": true
++    },
++    "POST /replay/import": {
++        "body": true,
++        "query": false,
++        "res": true
+     }
+ }
+\ No newline at end of file

@@ -1,6 +1,8 @@
+diff --git a/api/index.ts b/api/index.ts
+index 5a0c8b6bf..f4b9661ce 100644
 --- a/api/index.ts
 +++ b/api/index.ts
-@@ -101,7 +101,7 @@
+@@ -101,7 +101,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
      // is current before the stateless side connects
      const stateful = mode !== 'api' ? await ConfigStateful.env(envArgs) : undefined;
      const stateless = mode !== 'hub'

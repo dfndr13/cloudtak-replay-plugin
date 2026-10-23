@@ -1,6 +1,8 @@
+diff --git a/api/stateless/config.ts b/api/stateless/config.ts
+index b92292593..d3daf2138 100644
 --- a/api/stateless/config.ts
 +++ b/api/stateless/config.ts
-@@ -4,6 +4,7 @@
+@@ -4,6 +4,7 @@ import RemoteHub from './lib/hub/remote.js';
  import { UserManager } from './lib/interface-user.js';
  import { WeatherManager } from './lib/interface-weather.js';
  import type { HubClient } from '../common/hub/index.js';
@@ -8,7 +10,7 @@
  
  /**
   * Configuration for the stateless half of the server ('both' and 'api'
-@@ -15,9 +16,17 @@
+@@ -15,9 +16,17 @@ export default class ConfigStateless extends Config {
      hub: HubClient;
      user: UserManager;
      weather: WeatherManager;
@@ -26,15 +28,15 @@
      } = {}) {
          super(init);
  
-@@ -28,6 +37,7 @@
+@@ -28,12 +37,15 @@ export default class ConfigStateless extends Config {
              this.hub = new RemoteHub(this, init.hubUrl);
          }
  
 +        this.recorder = opts.recorder;
- 
++
          this.user = new UserManager(this);
          this.weather = new WeatherManager();
-@@ -35,6 +45,7 @@
+     }
  
      static async env(args: ConfigArgs, opts: {
          hub?: HubClient;

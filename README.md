@@ -6,8 +6,8 @@ after-action review.
 
 This repo is a **standalone packaging** of the plugin's source, meant as a
 clean reference/distribution point — it is not itself a runnable CloudTAK
-instance. It was developed against `dfpc-coe/CloudTAK` (this release against
-13.69.0, the CloudTAK 13.45+ stateful/stateless hub/api split).
+instance. It was developed against `dfpc-coe/CloudTAK`; this release supports
+CloudTAK v13.109.3 through v13.113.0 (the `app/` layout).
 
 ## What's in this repo
 
@@ -17,8 +17,8 @@ instance. It was developed against `dfpc-coe/CloudTAK` (this release against
   architecture, usage instructions, and known issues.
 - **`core-integration/`** — the pieces that don't live in the plugin folder
   because they belong to CloudTAK's core codebase: files this plugin owns
-  outright (recorder, player, routes, a retention task, a test), and four
-  small additive patches against existing core files. See
+  outright (recorder, player, routes, a retention task, tests), and thirteen
+  small patches against existing core files. See
   [`core-integration/README.md`](core-integration/README.md) for exactly
   where each one goes in a CloudTAK checkout.
 - **`install.sh`** — copies everything into place and applies/reverses the
@@ -26,9 +26,10 @@ instance. It was developed against `dfpc-coe/CloudTAK` (this release against
 
 ## Requirements
 
-- CloudTAK >= 13.45 (the stateful/stateless hub/api split — this plugin's
-  routes and libraries are written against that layout and will not apply to
-  an older tree).
+- CloudTAK v13.109.3 – v13.113.0. `install.sh` checks every patch against
+  the checkout before changing anything and refuses (leaving the checkout
+  untouched) if one doesn't apply. For older CloudTAK (the `api/web` layout,
+  before 13.102) use plugin [v1.1.1](#v111) (verified on 13.69.0).
 - `CLOUDTAK_Server_Mode=both` (CloudTAK's own `docker-compose.yml` default).
   Recording taps `ConnectionPool.cots()` on the stateful side; there's no Hub
   RPC equivalent for a true split stateful/stateless deployment, so **new
@@ -54,6 +55,46 @@ See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
+
+### v1.2.0
+
+Re-targets the plugin at current CloudTAK (v13.109.3 – v13.113.0), where the
+web app moved from `api/web/` to `app/` (13.102) and `ConnectionPool` no
+longer has `Sinks`.
+
+- **Installs into the new layout.** The web plugin goes to
+  `app/plugins/replay`, and the browser-worker patch targets
+  `app/src/workers/atlas-database.ts`.
+- **All core changes now ship as patches.** v1.1.x shipped four patches, but
+  the plugin also needs the replay flag carried through the Hub
+  (`api/common/hub/index.ts`, `api/stateful/lib/hub/local.ts`,
+  `api/stateful/routes/cots.ts`), the `retention::replay::*` settings
+  (`api/common/defaults.ts`, `api/common/types.ts`) and the retention task
+  (`tasks/retention/src/index.ts`, `tasks.ts`, and its test). Without them,
+  playback's `submitCots({ replay: true })` doesn't type-check and the
+  retention task never runs. A thirteenth patch adds the `/replay/*` routes
+  to `api/test/fixtures/get_schema.json`, so CloudTAK's own `api/schema`
+  test keeps passing after install.
+- **`connection-pool.ts` patch regenerated** against the current file (no
+  `Sinks`; the `cots()` body moved).
+- **No half-installs.** `install.sh` checks every patch before applying any;
+  if one doesn't fit, nothing is changed.
+- **Rebuilds the retention container too**, since the retention task changes.
+- **Recorder no longer stores duplicate rows.** Its duplicate check now
+  ignores the `_flow-tags_` block, whose TAK Server/node-cot timestamps differ
+  between copies of the same CoT. Before, a CoT that reached the server over
+  two connections was stored twice, and unchanged repeats were never skipped.
+  New unit test: `api/test/replay-recorder.test.ts`.
+- Player, routes, retention task and web plugin are unchanged from v1.1.1.
+
+Verified: every patch applies on every CloudTAK release from v13.109.3 to
+v13.113.0; on clean v13.109.3 and v13.113.0 checkouts, install exits 0 and the
+API (`tsc`, eslint), web app (`vue-tsc`, eslint) and retention task (`tsc`,
+tests) all pass, along with the replay tests; on v13.113.0 the full API test
+suite passes; re-running install skips everything; `--remove` restores the
+checkout exactly. Older releases are refused without changes. Recording and
+playback (live tracks and drawn features) were also checked on a running
+CloudTAK v13.113.0 server.
 
 ### v1.1.1
 

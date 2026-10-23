@@ -1,30 +1,33 @@
+diff --git a/api/stateful/lib/connection-pool.ts b/api/stateful/lib/connection-pool.ts
+index 121076b32..3c63eb40c 100644
 --- a/api/stateful/lib/connection-pool.ts
 +++ b/api/stateful/lib/connection-pool.ts
-@@ -4,6 +4,7 @@
+@@ -3,6 +3,7 @@ import fs from 'node:fs';
+ import path from 'node:path';
  import ImportControl, { ImportSourceEnum } from '../../common/control/import.js';
- import Sinks from './sinks.js';
  import type ConfigStateful from '../config.js';
 +import Recorder from './replay-recorder.js';
  import { randomUUID } from 'node:crypto';
  import Modeler from '@openaddresses/batch-generic';
  import { Connection } from '../../common/schema.js';
-@@ -126,6 +127,7 @@
+@@ -132,6 +133,7 @@ export const CONNECTION_LINGER_MS = 60000;
+ 
  export default class ConnectionPool extends Map<number | string, ConnectionClient> {
      config: ConfigStateful;
-     sinks: Sinks;
 +    recorder: Recorder;
      importControl: ImportControl;
      closed: boolean;
      pending: Map<number | string, Promise<ConnectionClient>>;
-@@ -148,6 +150,7 @@
+@@ -157,6 +159,8 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
+         this.config = config;
          this.importControl = new ImportControl(config);
  
-         this.sinks = new Sinks(config);
 +        this.recorder = new Recorder(config);
- 
++
          this.pingInterval = setInterval(() => {
              try {
-@@ -286,8 +289,16 @@
+                 for (const clients of this.config.wsClients.values()) {
+@@ -283,8 +287,16 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
      async cots(
          conn: ConnectionConfig,
          cots: CoT[],
@@ -41,7 +44,7 @@
              if (conn instanceof ProfileConnConfig) {
                  for (const cot of cots) {
                      // While I am reluncant to override user-intent, client's don't necessarily
-@@ -310,6 +321,11 @@
+@@ -307,6 +319,12 @@ export default class ConnectionPool extends Map<number | string, ConnectionClien
                      // device's CoT time so live ordering matches what clients get on refresh
                      let storedCreated: string | undefined;
  
@@ -50,6 +53,7 @@
 +                    // omitted key here would let a stale `replay: true` from an earlier
 +                    // playback survive on a CoT UID that's now genuinely live.
 +                    (feat.properties as Record<string, unknown>).replay = opts.replay === true;
- 
++
                      try {
                          if (conn instanceof ProfileConnConfig && feat.properties && feat.properties.chat && receiptStatus) {
+                             // Chat Receipts don't contain the original message so they

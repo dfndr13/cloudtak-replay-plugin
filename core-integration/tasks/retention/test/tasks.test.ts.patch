@@ -1,0 +1,24 @@
+diff --git a/tasks/retention/test/tasks.test.ts b/tasks/retention/test/tasks.test.ts
+index c7482f41f..a1dc08ffc 100644
+--- a/tasks/retention/test/tasks.test.ts
++++ b/tasks/retention/test/tasks.test.ts
+@@ -5,7 +5,7 @@ import { tasks, type RetentionTaskConfig } from '../src/tasks.js';
+ test('retention tasks are registered', () => {
+     assert.deepStrictEqual(
+         tasks.map(task => task.name),
+-        ['connection-feature', 'chat', 'import', 'feature'],
++        ['connection-feature', 'chat', 'import', 'feature', 'replay'],
+     );
+ });
+ 
+@@ -18,8 +18,8 @@ test('connection-feature is enabled unless explicitly disabled', () => {
+     assert.strictEqual(task.enabled({ 'retention::connection-feature::enabled': false }), false);
+ });
+ 
+-test('chat/import/feature are opt-in', () => {
+-    for (const name of ['chat', 'import', 'feature'] as const) {
++test('chat/import/feature/replay are opt-in', () => {
++    for (const name of ['chat', 'import', 'feature', 'replay'] as const) {
+         const task = tasks.find(t => t.name === name);
+         assert.ok(task?.enabled, `${name} should define enabled()`);
+ 

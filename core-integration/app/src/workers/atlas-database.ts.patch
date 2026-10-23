@@ -1,6 +1,17 @@
---- a/api/web/src/workers/atlas-database.ts
-+++ b/api/web/src/workers/atlas-database.ts
-@@ -50,6 +50,12 @@
+diff --git a/app/src/workers/atlas-database.ts b/app/src/workers/atlas-database.ts
+index 2ac37447d..6cb08ad3a 100644
+--- a/app/src/workers/atlas-database.ts
++++ b/app/src/workers/atlas-database.ts
+@@ -3,7 +3,7 @@
+ * AtlasConnection - Maintain the WebSocket connection with CloudTAK Server
+ */
+ 
+-import { server, bearer } from '../std.ts';
++import { std, server, bearer } from '../std.ts';
+ import { db, withDbRetry, isDatabaseSuspended, deferFeaturePersist, takeDeferredFeatureIds } from '../database.ts';
+ import type { DBSubscriptionChanges, DBFeature } from '../database.ts';
+ import { LngLatBounds } from 'maplibre-gl'
+@@ -51,6 +51,13 @@ export default class AtlasDatabase {
      // Stores Active Mission if present
      mission?: string;
  
@@ -10,23 +21,31 @@
 +    // is re-instantiated per-realm and main-thread mutations never cross
 +    // the boundary. Same push-from-main-thread pattern as makeActiveMission().
 +    recordingActive = false;
- 
++
      static normalizePath(path: string): string {
          if (!path) return '/';
-@@ -94,6 +100,9 @@
+         if (!path.startsWith('/')) path = '/' + path;
+@@ -98,6 +105,10 @@ export default class AtlasDatabase {
          }
      }
  
 +    async setRecordingActive(active: boolean): Promise<void> {
 +        this.recordingActive = active;
 +    }
- 
++
      /**
       * Only Called by non-Mission CoTs, caller is responsible for creating Filters
-@@ -122,6 +131,22 @@
-             console.error('Failed to load archived features:', err);
-         }
+      */
+@@ -119,6 +130,29 @@ export default class AtlasDatabase {
+             console.error('Failed to hydrate features from local database:', err);
+         });
  
++        try {
++            await this.loadArchive();
++        } catch (err) {
++            console.error('Failed to load archived features:', err);
++        }
++
 +        // recordingActive is normally kept in sync by ReplayPanel.vue pushing
 +        // status via setRecordingActive() on mount/start/stop. But this worker
 +        // is a fresh instance on every page load/reload, and a reload doesn't
@@ -43,10 +62,11 @@
 +        } catch (err) {
 +            console.error('Failed to fetch initial recording status:', err);
 +        }
- 
++
          await this.breadcrumb.load();
      }
-@@ -591,6 +616,16 @@
+ 
+@@ -807,6 +841,17 @@ export default class AtlasDatabase {
              this.pendingDelete.add(id);
  
              if (cot.properties.archived) {
@@ -60,10 +80,11 @@
 +                if (this.recordingActive) {
 +                    void this.recordRemoval(id);
 +                }
- 
++
                  if (!opts.skipNetwork) {
-                     await std(`/api/profile/feature/${id}`, {
-@@ -614,6 +649,15 @@
+                     const { error } = await server.DELETE('/api/profile/feature/{:id}', {
+                         params: { path: { ':id': id }, query: { permanent: false } },
+@@ -831,6 +876,16 @@ export default class AtlasDatabase {
                  skipNetwork: opts.skipNetwork
              });
  
@@ -76,10 +97,11 @@
 +            if (this.recordingActive) {
 +                void this.recordRemoval(cot.id);
 +            }
- 
++
              this.atlas.postMessage({
                  type: WorkerMessageType.Mission_Change_Feature,
-@@ -690,6 +734,15 @@
+                 body: {
+@@ -906,6 +961,16 @@ export default class AtlasDatabase {
                          skipNetwork: true
                      });
  
@@ -92,10 +114,11 @@
 +                    if (this.recordingActive) {
 +                        void this.recordRemoval(change.contentUid);
 +                    }
- 
++
                      updateGuid = task.properties.mission.guid;
                  }
-@@ -848,6 +901,17 @@
+             }
+@@ -1091,6 +1156,18 @@ export default class AtlasDatabase {
  
              await this.breadcrumb.update(exists);
  
@@ -110,10 +133,11 @@
 +            if (opts.authored && this.recordingActive) {
 +                void this.recordDirectWrite(exists);
 +            }
- 
++
              return exists;
          } else {
-@@ -968,6 +1032,15 @@
+             if (exists) {
+@@ -1210,6 +1287,16 @@ export default class AtlasDatabase {
  
              await this.breadcrumb.update(exists);
  
@@ -126,10 +150,11 @@
 +            if (opts.authored && this.recordingActive) {
 +                void this.recordDirectWrite(exists);
 +            }
- 
++
              return exists;
          }
-@@ -1021,6 +1094,76 @@
+     }
+@@ -1268,6 +1355,77 @@ export default class AtlasDatabase {
          }
      }
  
@@ -203,6 +228,7 @@
 +            console.error('Failed to record feature removal to active recording:', err);
 +        }
 +    }
- 
++
      /**
       * Return a CoT by ID if it exists
+      *

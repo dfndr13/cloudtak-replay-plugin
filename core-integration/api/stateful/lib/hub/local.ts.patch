@@ -1,0 +1,13 @@
+diff --git a/api/stateful/lib/hub/local.ts b/api/stateful/lib/hub/local.ts
+index d2ec94a2a..291d59c85 100644
+--- a/api/stateful/lib/hub/local.ts
++++ b/api/stateful/lib/hub/local.ts
+@@ -132,7 +132,7 @@ export default class LocalHub implements HubClient {
+         }
+ 
+         if (req.broadcast) {
+-            this.config.conns.cots(client.config, req.cots).catch((err) => {
++            this.config.conns.cots(client.config, req.cots, { replay: req.replay === true }).catch((err) => {
+                 console.error(`Error: Failed to broadcast CoTs for ${req.connection}:`, err);
+             });
+         }

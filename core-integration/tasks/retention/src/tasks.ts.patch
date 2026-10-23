@@ -1,0 +1,25 @@
+diff --git a/tasks/retention/src/tasks.ts b/tasks/retention/src/tasks.ts
+index 50dbff893..36fb5d125 100644
+--- a/tasks/retention/src/tasks.ts
++++ b/tasks/retention/src/tasks.ts
+@@ -6,6 +6,7 @@ export interface RetentionTaskConfig {
+     'retention::chat::enabled'?: boolean;
+     'retention::import::enabled'?: boolean;
+     'retention::feature::enabled'?: boolean;
++    'retention::replay::enabled'?: boolean;
+ }
+ 
+ export interface RetentionTaskResult {
+@@ -80,4 +81,12 @@ export const tasks: RetentionTask[] = [{
+     run: async (): Promise<RetentionTaskResult> => {
+         return await postRetention('feature');
+     },
++}, {
++    name: 'replay',
++    enabled: (config: RetentionTaskConfig): boolean => {
++        return config['retention::replay::enabled'] === true;
++    },
++    run: async (): Promise<RetentionTaskResult> => {
++        return await postRetention('replay');
++    },
+ }];

@@ -1,0 +1,20 @@
+diff --git a/api/stateful/routes/cots.ts b/api/stateful/routes/cots.ts
+index 627987dc1..24f444bb7 100644
+--- a/api/stateful/routes/cots.ts
++++ b/api/stateful/routes/cots.ts
+@@ -20,6 +20,7 @@ export default async function router(schema: Schema, config: ConfigStateful) {
+             broadcast: Type.Optional(Type.Boolean()),
+             ensureProfile: Type.Optional(Type.Boolean()),
+             ifPooled: Type.Optional(Type.Boolean()),
++            replay: Type.Optional(Type.Boolean()),
+         }),
+         // The paused-connection outcome is a first-class response rather than
+         // an Err: LocalHub signals it as Err(200) and response validation
+@@ -37,6 +38,7 @@ export default async function router(schema: Schema, config: ConfigStateful) {
+                 broadcast: req.body.broadcast,
+                 ensureProfile: req.body.ensureProfile,
+                 ifPooled: req.body.ifPooled,
++                replay: req.body.replay,
+                 cots: req.body.cots.map((c) => {
+                     const cot = CoTParser.from_xml(c.xml);
+                     if (c.path !== undefined) cot.path = c.path;

@@ -1,0 +1,13 @@
+diff --git a/api/common/defaults.ts b/api/common/defaults.ts
+index 5faaaa145..72e772901 100644
+--- a/api/common/defaults.ts
++++ b/api/common/defaults.ts
+@@ -13,6 +13,8 @@ export const FullConfigDefaults: Partial<Static<typeof FullConfig>> = {
+     'retention::import::days': 30,
+     'retention::feature::enabled': false,
+     'retention::feature::days': 30,
++    'retention::replay::enabled': false,
++    'retention::replay::days': 10,
+     'notification::enabled': false,
+     'notification::email::enabled': false,
+     'notification::email::service': 'aws',

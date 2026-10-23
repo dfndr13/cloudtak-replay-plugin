@@ -1,4 +1,4 @@
-<!-- api/web/plugins/replay/ReplayPanel.vue -->
+<!-- app/plugins/replay/ReplayPanel.vue -->
 <template>
     <div class='replay-panel p-2'>
         <!-- Recording ---------------------------------------------------- -->

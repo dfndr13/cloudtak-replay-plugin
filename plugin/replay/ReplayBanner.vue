@@ -1,4 +1,4 @@
-<!-- api/web/plugins/replay/ReplayBanner.vue -->
+<!-- app/plugins/replay/ReplayBanner.vue -->
 <template>
     <div
         v-if='replayPlaybackState.active'

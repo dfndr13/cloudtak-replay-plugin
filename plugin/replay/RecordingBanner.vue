@@ -1,4 +1,4 @@
-<!-- api/web/plugins/replay/RecordingBanner.vue -->
+<!-- app/plugins/replay/RecordingBanner.vue -->
 <template>
     <div
         v-if='recordingState.active'

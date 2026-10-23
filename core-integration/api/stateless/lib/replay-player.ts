@@ -1,4 +1,4 @@
-// api/lib/replay-player.ts
+// api/stateless/lib/replay-player.ts
 //
 // SIMPLIFIED: no dedicated layer certs, no tak.write() to real TAK Server.
 // Playback broadcasts to the requesting user's OWN browser session only,

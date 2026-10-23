@@ -1,4 +1,4 @@
-// api/lib/replay-recorder.ts
+// api/stateful/lib/replay-recorder.ts
 //
 // Matches the working pattern already used by this instance's
 // plugin-dispatcher.ts: raw CREATE TABLE IF NOT EXISTS via

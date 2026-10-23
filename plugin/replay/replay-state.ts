@@ -1,4 +1,4 @@
-// api/web/plugins/replay/replay-state.ts
+// app/plugins/replay/replay-state.ts
 //
 // The playback banner (ReplayBanner.vue) is rendered by BottomBarManager,
 // detached from ReplayPanel.vue's component tree, so it has no way to

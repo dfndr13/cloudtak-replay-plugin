@@ -49,15 +49,16 @@ CloudTAK v13.109.3 through v13.113.0 (the `app/` layout).
   leaves them on the map after Stop until cleared, never saves them into the
   user's own features, and never feeds a replay back into a concurrently
   active recording.
-- Exports/imports recordings as portable JSON files so they can be shared
-  between CloudTAK instances.
+- Exports recordings as KML (Google Earth time slider, ArcGIS, ATAK) and CSV
+  (UTC and local time, units in both systems), and as portable JSON files
+  that another CloudTAK instance can import.
 
 See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
 
-### v1.4.0 (not released yet)
+### v1.4.0
 
 Supports the same CloudTAK releases as v1.3.0 (v13.109.3 – v13.113.0).
 

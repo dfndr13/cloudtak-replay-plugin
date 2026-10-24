@@ -90,7 +90,7 @@ export default async function router(schema: Schema, config: ConfigStateless) {
         group: 'Replay',
         description: 'Begin recording all CoT traffic under a named event',
         body: Type.Object({
-            name: Type.String({ description: 'e.g. "KSF 2026"' }),
+            name: Type.String({ description: 'Event name' }),
         }),
         res: Type.Any(),
     }, async (req, res) => {

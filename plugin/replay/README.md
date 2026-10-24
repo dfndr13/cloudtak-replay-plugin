@@ -7,7 +7,7 @@ for training and after-action review.
 ## What it does
 
 - **Record** all CoT traffic flowing through this CloudTAK instance under a
-  named event (e.g. "KSF 2026"), including features a user draws/authors
+  named event, including features a user draws/authors
   locally — Mission-linked or not — even if they're never Shared/broadcast
   live. Starting a recording also snapshots every currently-live feature so
   pre-existing state has a baseline from the start of the window.
@@ -161,7 +161,7 @@ window.
 ## Using it
 
 **Start a recording**
-1. Open the Replay panel, type an event name (e.g. "KSF 2026"), click
+1. Open the Replay panel, type an event name, click
    **Record**. A red "RECORDING: \<name\>" banner appears at the bottom of
    the map for as long as it's active — recording continues server-side
    even if you close the panel or navigate away.

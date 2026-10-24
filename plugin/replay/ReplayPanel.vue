@@ -9,7 +9,7 @@
                     <input
                         v-model='newEventName'
                         class='form-control form-control-sm'
-                        placeholder='e.g. KSF 2026'
+                        placeholder='Event name'
                     >
                     <button
                         class='btn btn-sm btn-danger'

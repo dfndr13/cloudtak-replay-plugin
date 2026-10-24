@@ -118,7 +118,7 @@ if [ ! -d "$CT_DIR/api/stateless/routes" ] || [ ! -d "$CT_DIR/api/stateful/lib" 
 fi
 if [ ! -d "$CT_DIR/app/src/workers" ]; then
     echo "ERROR: this CloudTAK still uses the old api/web layout (no app/src/workers)." >&2
-    echo "       Plugin v1.2.0+ requires CloudTAK >= 13.109.3. For older CloudTAK" >&2
+    echo "       Plugin v1.2.0 and later require CloudTAK >= 13.109.3. For older CloudTAK" >&2
     echo "       use plugin v1.1.1 (verified on 13.69.0):  git -C \"$REPO_DIR\" checkout v1.1.1" >&2
     exit 1
 fi

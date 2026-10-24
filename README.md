@@ -61,27 +61,39 @@ write-up, including known issues.
 
 Supports the same CloudTAK releases as v1.2.0 (v13.109.3 – v13.113.0).
 
-- **Replayed features get their own UIDs** (`replay-<uid>`, callsign +
-  " (replay)"). Before, a replayed asset that was also still reporting live
-  shared one map feature with its live copy: during playback it jumped
-  between the live and the replayed position, and on pause it disappeared.
-- **Playback never writes the user's saved features.** Replayed drawn
-  features arrived with `<archive/>`, so the browser saved them to the
-  user's profile features (bringing back deleted ones) and a replayed delete
-  deleted the real saved feature. Replayed copies now carry no
-  `<archive/>`.
-- **Replayed features stay on the map after Stop**, until the new **Clear
-  replay** button (or the next playback) removes them. They get a 24 h
-  stale; the player removes a copy itself when its recorded stale window
-  ends, so expiry during playback still matches the original session.
-- **Seek removes features that don't exist at the new point** (not created
-  yet, removed, expired, or filtered out). Before, they stayed on the map.
-- **One `removed` row per delete.** A delete reached the recorder twice
-  (the deleting tab, then the same tab handling the server's own sync
-  event), so each deleted feature got two identical rows.
-- Replayed copies are never recorded into a new recording.
+**Added**
+- **Clear replay** button. Replayed features now stay on the map after Stop
+  (or the end of the recording) until you click it; starting another
+  playback also clears them.
+- Replayed features show " (replay)" after their callsign.
 - New unit tests: `api/test/replay-player.test.ts` (installed by
   `install.sh`), and two more in `api/test/replay-recorder.test.ts`.
+
+**Changed**
+- Replayed features are sent under their own UIDs (`replay-<uid>`; links
+  between recorded features are remapped too), so they never share a map
+  feature with the same asset reporting live.
+- Replayed features get a 24 h stale. The player removes a feature itself
+  when its recorded stale window ends, so expiry during playback still
+  matches the original session.
+- The panel's live/replay hiding is now a simple UID-prefix rule (the old
+  timestamp/flag tracking is gone).
+
+**Fixed**
+- **Playback wrote into the user's saved features.** Replayed drawn
+  features carried `<archive/>`, so the browser saved them to the user's
+  profile features (bringing back deleted ones) and a replayed delete
+  deleted the real saved feature. Replayed copies no longer carry
+  `<archive/>`.
+- **An asset still reporting live jumped during playback and disappeared on
+  pause** (live and replayed copies shared one UID).
+- **Seek left features on the map that didn't exist yet at the new point**
+  (or were removed, expired, or filtered out). They are now removed.
+- **Two `removed` rows per delete.** A delete reached the recorder twice
+  (the deleting tab, then the same tab handling the server's own sync
+  event); now one row is written.
+- Replayed copies on the map could be captured into a new recording; they
+  are now skipped.
 
 ### v1.2.0
 

@@ -14,12 +14,19 @@ for training and after-action review.
 - **Play back** a recorded event on demand: pause/resume, jump back 30s,
   scrub by percentage, and toggle visibility by category (aircraft, UAS,
   ground, maritime, other). Speed (1x–50x) is set when starting playback.
-- **Distinguish replay from live** while playback is running — the user's
-  real live features are hidden for the duration of playback (so the map
-  isn't a mix of "then" and "now"), while replayed features are tagged
-  `properties.replay = true` and shown on top. The user's own self-position
-  marker is exempted from this hiding, since its UID can coincide with a
-  replayed copy of "themselves".
+- **Distinguish replay from live** — replayed features are sent under
+  their own UIDs (`replay-<uid>`) with " (replay)" added to the callsign,
+  so an asset that is still reporting live never collides with its replayed
+  copy. The user's real live features (all but their own self-position
+  marker) are hidden while playback runs, so the map isn't a mix of "then"
+  and "now".
+- **Keep the result on the map** — after Stop (or the end of the
+  recording) live features come back and the replayed copies stay where
+  playback left them, until **Clear replay** (or the next playback) removes
+  them.
+- **Never touch saved features** — replayed copies carry no `<archive/>`,
+  so the browser never saves them to the user's profile features and a
+  replayed delete never deletes a real one.
 - **Export/import** a recorded event as a portable JSON file, so a
   recording made on one CloudTAK instance can be shared and replayed on
   another.
@@ -89,18 +96,23 @@ directly (it lives in the stateless process; recording does not). On each
 tick it selects, per UID, the most recent `replay_cot` row at-or-before the
 session's virtual clock:
 
-- A `kind = 'removed'` row becomes a `ForceDelete` task for that UID — never
-  handed to `CoTParser.from_xml()`, which would throw on its empty
-  `cot_xml`.
-- Otherwise it rewrites `time`/`start`/`stale` to the current wall clock
-  (preserving the original stale offset), *unless* the row's own recorded
-  stale window had already elapsed as of the session's virtual clock — a
-  feed that just stopped sending updates mid-recording, with no explicit
-  removal marker, stays gone instead of getting a fresh future `stale` time
-  on every tick.
+- A `kind = 'removed'` row becomes a `ForceDelete` task for the replayed
+  copy (`replay-<uid>`) — never handed to `CoTParser.from_xml()`, which
+  would throw on its empty `cot_xml`.
+- Otherwise `toReplayXml()` builds the replayed copy: the event UID and any
+  `<link uid>` pointing at another recorded UID move to `replay-<uid>`,
+  " (replay)" is added to the callsign, `<archive/>` is removed, and
+  `time`/`start` become the current wall clock with a 24 h `stale` (so the
+  copy stays on the map after Stop). Rows whose own recorded stale window
+  had already elapsed at the session's virtual clock are skipped.
+- The player itself removes a replayed copy (`ForceDelete`) once the
+  virtual clock passes the end of its recorded stale window with no newer
+  row, so a feed that just stopped sending mid-recording disappears when it
+  did in the original session.
 
 A seek/jump does a full resync (`DISTINCT ON (uid) ... ORDER BY recorded_at
-DESC`); a normal tick only publishes what's newly crossed since the last
+DESC`) and removes the replayed copy of every UID not shown at the new
+point (not created yet, removed, expired or filtered out); a normal tick only publishes what's newly crossed since the last
 tick, so one-time side effects (e.g. a fileshare/data-package announcement)
 fire once instead of repeating every second for the rest of playback. Any
 per-row parse failure, or a `publishStateAt`/tick failure in general, is
@@ -158,13 +170,17 @@ window.
 
 **Play one back**
 1. Pick the event from the dropdown, set a speed, click **Start Playback**.
-   Your own live features are hidden for the duration (except your
-   self-marker) and a red "REPLAY: \<name\>" banner appears.
+   Replayed copies left from an earlier playback are cleared, your own live
+   features are hidden for the duration (except your self-marker) and a red
+   "REPLAY: \<name\>" banner appears. Replayed features show " (replay)"
+   after their callsign.
 2. Use Pause/Play, the back button (rewinds 30 real seconds, scaled by
    speed), the scrubber, and the category checkboxes to control what plays.
    Speed can't be changed mid-playback — stop and restart to change it.
 3. Click **Stop** (or let it run to the end) to restore your live features
-   and remove the banner.
+   and remove the banner. The replayed features stay on the map where
+   playback left them.
+4. Click **Clear replay** to remove them.
 
 **Delete a recorded event**
 - Select it in the dropdown and click **Delete**, then confirm. This is
@@ -188,7 +204,7 @@ window.
   adds latency to every user's live feed while a recording is active.
 - **Toggling a category off mid-playback only stops new features of that
   category from being published** — it doesn't retroactively hide features
-  of that category already drawn on the map.
+  of that category already drawn on the map (a seek does clear them).
 - **Deletions by other Mission members are now captured for Mission-linked
   content** (via TAK Server's `REMOVE_CONTENT` change notification — see
   Architecture above), but this does *not* cover plain live/gateway CoT
@@ -196,9 +212,9 @@ window.
   not reliably delivered end-to-end, per TAK Product Center guidance. In
   that case the feature is simply never seen again in the live stream —
   recording has no signal that it was deleted rather than just quiet — so on
-  playback it stays at its last known position/state and goes stale
-  naturally (per its own `stale` timestamp) instead of disappearing at the
-  moment it was actually deleted.
+  playback it stays at its last known position/state until its own recorded
+  `stale` time passes, instead of disappearing at the moment it was actually
+  deleted.
 
 Upstream CloudTAK PR [#1598](https://github.com/dfpc-coe/CloudTAK/pull/1598)
 adds broader `t-x-d-d` support to CloudTAK core. It's related to the last

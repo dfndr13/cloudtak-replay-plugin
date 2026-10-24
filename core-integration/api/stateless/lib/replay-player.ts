@@ -24,6 +24,21 @@ type ReplayCategory = 'aircraft' | 'uas' | 'ground' | 'maritime' | 'other';
 // without reaping a still-attached session.
 const SESSION_IDLE_TIMEOUT_MS = 30_000;
 
+// Replayed CoTs are sent under their own UIDs (REPLAY_PREFIX + recorded uid)
+// so they never collide with the same asset still reporting live - one UID
+// per map feature, and a live update would otherwise overwrite (and the
+// panel then hide) the replayed copy. ReplayPanel.vue keys off the same prefix.
+export const REPLAY_PREFIX = 'replay-';
+
+// Replayed copies stay on the map after Stop until the user clears them, so
+// they get a long stale time. Expiry during playback is driven by the player
+// itself (PlaybackControl.liveUntil), not by the browser's stale timer.
+const REPLAY_STALE_MS = 24 * 60 * 60 * 1000;
+
+export function replayUid(uid: string): string {
+    return REPLAY_PREFIX + uid;
+}
+
 function categorize(cotType: string, how?: string): ReplayCategory {
     if (!cotType.startsWith('a-')) return 'other';
     const dim = cotType.split('-')[2];
@@ -75,6 +90,22 @@ function rewriteTimestamps(xml: string, playbackNow: Date, staleOffsetMs: number
         .replace(/\sstale="[^"]*"/, ` stale="${newStale}"`);
 }
 
+/**
+ * Turn a recorded CoT into its replayed copy: fresh timestamps, the event UID
+ * and any links to other recorded UIDs (e.g. a range ring's parent) moved to
+ * replay UIDs, " (replay)" added to the callsign, and <archive/> removed.
+ * Without <archive/> the browser treats the copy as a plain received CoT - it
+ * never PUTs it to the user's saved features, and a replayed delete never
+ * DELETEs a real saved feature.
+ */
+export function toReplayXml(xml: string, uids: Set<string>, playbackNow: Date): string {
+    return rewriteTimestamps(xml, playbackNow, REPLAY_STALE_MS)
+        .replace(/(<event\b[^>]*?\suid=")([^"]*)"/, (_m, pre: string, uid: string) => `${pre}${replayUid(uid)}"`)
+        .replace(/(<link\b[^>]*?\suid=")([^"]*)"/g, (m, pre: string, uid: string) => uids.has(uid) ? `${pre}${replayUid(uid)}"` : m)
+        .replace(/<archive\b[^>]*\/>|<archive\b[^>]*>[\s\S]*?<\/archive>/g, '')
+        .replace(/(<contact\b[^>]*?\scallsign=")([^"]*)"/, (_m, pre: string, callsign: string) => `${pre}${callsign} (replay)"`);
+}
+
 export interface PlaybackControl {
     sessionId: string;
     eventId: number;
@@ -96,6 +127,13 @@ export interface PlaybackControl {
     // Used by tick() to reap sessions abandoned by a disconnect that never
     // called stop() (see SESSION_IDLE_TIMEOUT_MS).
     lastSeen: Date;
+    // Every uid in the event, for remapping links and for clearing replayed
+    // copies that don't exist yet at a seek target.
+    uids: Set<string>;
+    // Replayed uid -> recorded time (ms) its own stale window ends. Once
+    // virtualNow passes it with no newer row, the copy is removed, matching
+    // what the original session showed (replayed copies have a long stale).
+    liveUntil: Map<string, number>;
 }
 
 interface ReplayCotRow {
@@ -117,6 +155,10 @@ export default class Player {
     async start(eventId: number, username: string, windowStart: Date, windowEnd: Date, speed = 1): Promise<string> {
         const sessionId = crypto.randomUUID();
 
+        const uidRows = await this.config.pg.execute(sql`
+            SELECT DISTINCT uid FROM replay_cot WHERE event = ${eventId}
+        `) as unknown as { uid: string }[];
+
         this.sessions.set(sessionId, {
             sessionId,
             eventId,
@@ -131,6 +173,8 @@ export default class Player {
             lastPublishedAt: new Date(windowStart.getTime() - 1),
             activeCategories: new Set(['aircraft', 'uas', 'ground', 'maritime', 'other']),
             lastSeen: new Date(),
+            uids: new Set(uidRows.map(r => r.uid)),
+            liveUntil: new Map(),
         });
 
         this.tick(sessionId);
@@ -287,6 +331,10 @@ export default class Player {
 
         s.lastPublishedAt = s.virtualNow;
 
+        const now = s.virtualNow.getTime();
+        if (opts.fullSnapshot) s.liveUntil.clear();
+        const shown = new Set<string>();
+
         const cots: CoT[] = [];
         for (const row of rows) {
             // 'removed' rows (Recorder.recordRemoval()) carry no usable cot_xml/
@@ -297,7 +345,9 @@ export default class Player {
             // of category filtering since cot_type is unknown (NULL) for these
             // rows - a removal for a uid the client doesn't have is a no-op there.
             if (row.kind === 'removed') {
-                cots.push(new ForceDelete(row.uid));
+                s.liveUntil.delete(row.uid);
+                // A full snapshot clears everything not shown in the sweep below
+                if (!opts.fullSnapshot) cots.push(new ForceDelete(replayUid(row.uid)));
                 continue;
             }
 
@@ -320,12 +370,28 @@ export default class Player {
                 // what actually happened in the original session, instead of
                 // rewriteTimestamps() below handing it a brand new future stale
                 // time on every publish.
-                if (new Date(row.recorded_at).getTime() + staleOffsetMs < s.virtualNow.getTime()) continue;
+                const until = new Date(row.recorded_at).getTime() + staleOffsetMs;
+                if (until < now) continue;
 
-                const rewritten = rewriteTimestamps(row.cot_xml, new Date(), staleOffsetMs);
-                cots.push(await CoTParser.from_xml(rewritten));
+                cots.push(await CoTParser.from_xml(toReplayXml(row.cot_xml, s.uids, new Date())));
+                s.liveUntil.set(row.uid, until);
+                shown.add(row.uid);
             } catch (err) {
                 console.error(`[replay] skipping unparseable row for uid ${row.uid}:`, err);
+            }
+        }
+
+        if (opts.fullSnapshot) {
+            // Seeking: anything not shown at the new point (not created yet,
+            // removed, expired or filtered out) must leave the map.
+            for (const uid of s.uids) {
+                if (!shown.has(uid)) cots.push(new ForceDelete(replayUid(uid)));
+            }
+        } else {
+            for (const [uid, until] of s.liveUntil) {
+                if (until >= now) continue;
+                s.liveUntil.delete(uid);
+                cots.push(new ForceDelete(replayUid(uid)));
             }
         }
 

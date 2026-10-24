@@ -130,6 +130,7 @@ RETENTION_DEST="$CT_DIR/api/stateless/lib/retention/replay.ts"
 RECORDER_DEST="$CT_DIR/api/stateful/lib/replay-recorder.ts"
 TEST_DEST="$CT_DIR/api/test/replay-retention.srv.test.ts"
 UNIT_TEST_DEST="$CT_DIR/api/test/replay-recorder.test.ts"
+PLAYER_TEST_DEST="$CT_DIR/api/test/replay-player.test.ts"
 
 # Patches: name -> (patch file relative to this repo, target file relative to CT_DIR, unique marker string)
 PATCHES_TARGET=(
@@ -201,7 +202,7 @@ if [ "$ACTION" = "remove" ]; then
         fi
     done
 
-    for f in "$ROUTES_DEST" "$PLAYER_DEST" "$RETENTION_DEST" "$RECORDER_DEST" "$TEST_DEST" "$UNIT_TEST_DEST"; do
+    for f in "$ROUTES_DEST" "$PLAYER_DEST" "$RETENTION_DEST" "$RECORDER_DEST" "$TEST_DEST" "$UNIT_TEST_DEST" "$PLAYER_TEST_DEST"; do
         if [ -f "$f" ]; then
             rm -f "$f"
             echo "Removed: ${f#$CT_DIR/}"
@@ -268,6 +269,9 @@ else
 
     cp "$REPO_DIR/core-integration/api/test/replay-recorder.test.ts" "$UNIT_TEST_DEST"
     echo "Installed: api/test/replay-recorder.test.ts"
+
+    cp "$REPO_DIR/core-integration/api/test/replay-player.test.ts" "$PLAYER_TEST_DEST"
+    echo "Installed: api/test/replay-player.test.ts"
 
     echo
     for i in "${!PATCHES_PATCH[@]}"; do

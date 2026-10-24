@@ -81,6 +81,12 @@ export function contentHash(xml: string): string {
 // recentHashes value after a removal marker (never a real sha256)
 const REMOVED = 'removed';
 
+// Replayed copies on the map (replay-player.ts REPLAY_PREFIX) are never part
+// of a new recording - e.g. the browser's start-of-recording snapshot.
+function isReplayCopy(uid: string): boolean {
+    return uid.startsWith('replay-');
+}
+
 export default class Recorder {
     config: Config;
     activeEvent: { id: number; name: string } | null = null;
@@ -185,7 +191,7 @@ export default class Recorder {
      * rather than 'gateway'.
      */
     async recordDirect(uid: string, cotType: string | null, xml: string, source = 'authored'): Promise<void> {
-        if (!this.activeEvent) return;
+        if (!this.activeEvent || isReplayCopy(uid)) return;
         await this.ensureBootstrapped();
 
         const sha = contentHash(xml);
@@ -209,7 +215,7 @@ export default class Recorder {
      * tells the browser to drop the feature instead of replaying it.
      */
     async recordRemoval(uid: string, source = 'authored'): Promise<void> {
-        if (!this.activeEvent) return;
+        if (!this.activeEvent || isReplayCopy(uid)) return;
 
         // A delete arrives twice: from the tab that deleted the feature, then
         // ~0.7 s later when that tab gets the server's own "feature deleted"

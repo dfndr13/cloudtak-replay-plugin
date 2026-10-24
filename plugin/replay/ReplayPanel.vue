@@ -59,6 +59,13 @@
             >
                 Start Playback
             </button>
+            <button
+                v-if='hasReplayFeatures'
+                class='btn btn-sm btn-outline-secondary mt-2 w-100'
+                @click='clearReplayFeatures'
+            >
+                Clear replay
+            </button>
 
             <div class='d-flex gap-2 mt-2'>
                 <button
@@ -205,28 +212,19 @@ const events = ref<ReplayEvent[]>([]);
 const selectedEventId = ref<number | null>(null);
 const activeEventName = ref('');
 let hiddenLiveIds: string[] = [];
-// The user's own live self-position marker shares its CoT UID with any
-// replayed copy of "themselves" in the recording. Its live updates go
-// straight to the TAK server (PUT /profile/location -> tak.write), bypassing
-// ConnectionPool.cots()'s replay tagging entirely, then echo back tagged
-// replay:false - a continuous geolocation watch keeps re-submitting it, so
-// it repeatedly wins the race against the replay tag. Simplest fix: never
-// let the replay-visibility mechanism touch this UID at all.
+// Never hide the user's own position marker during playback.
 let selfUid: string | null = null;
 
-// UIDs confirmed delivered by the *current* playback session. Rebuilt from
-// scratch every time a session starts - membership in properties.replay
-// alone isn't trustworthy, since that's a persisted per-feature flag that
-// survives unchanged on any UID a *previous*, unrelated session touched but
-// this one never revisits.
-let sessionReplayUids: Set<string> = new Set();
-// Baseline of each UID's CoT generation time (properties.time), snapshotted
-// at session start and advanced as genuine new arrivals are detected. Used
-// to tell "still carrying a stale replay:true flag from a prior session"
-// apart from "just got a fresh replay message in this session" - the flag
-// alone can't do that, but the CoT's own timestamp only changes when a new
-// message actually arrives for that UID.
-let lastSeenTime: Map<string, string> = new Map();
+// The player sends replayed CoTs under their own UIDs (replay-player.ts
+// REPLAY_PREFIX), so replay and live copies of the same asset never share a
+// map feature: anything without the prefix is live and hidden during
+// playback; replayed copies stay on the map after Stop until cleared.
+const REPLAY_PREFIX = 'replay-';
+const hasReplayFeatures = ref(false);
+
+function isReplayCopy(id: string): boolean {
+    return id.startsWith(REPLAY_PREFIX);
+}
 const newEventName = ref('');
 const recording = reactive<{ active: boolean; event?: { id: number; name: string } }>({ active: false });
 
@@ -260,6 +258,8 @@ async function pollStatus() {
 onMounted(async () => {
     await refreshEvents();
     await refreshRecordingStatus();
+    // Replayed copies from an earlier playback survive a page reload
+    hasReplayFeatures.value = (await FeatureManager.list()).some((f) => isReplayCopy(f.id));
 });
 
 onUnmounted(() => {
@@ -352,51 +352,12 @@ async function hideLiveFeatures() {
     // when playback started.
     hiddenLiveIds = live
         .map((f) => f.id)
-        .filter((id) => id !== selfUid && !FeatureVisibility.isFeatureHidden(id));
+        .filter((id) => !isReplayCopy(id) && id !== selfUid && !FeatureVisibility.isFeatureHidden(id));
     if (hiddenLiveIds.length) FeatureVisibility.setFeaturesHidden(hiddenLiveIds, true);
-
-    // Fresh session: no UID is exempt yet, and every feature's current
-    // properties.time becomes the baseline that new arrivals must beat.
-    sessionReplayUids = new Set();
-    lastSeenTime = new Map(live.map((f) => [f.id, String(f.properties.time || '')]));
 }
 
 async function hideNewLiveFeatures() {
     const live = await listAllLive();
-
-    // A feature only belongs to this session once its CoT generation time
-    // has actually moved past the baseline - that's proof a new message
-    // landed while we were watching, not just a leftover replay:true flag.
-    for (const f of live) {
-        const time = String(f.properties.time || '');
-        if (lastSeenTime.get(f.id) === time) continue;
-
-        if (f.properties.replay === true) {
-            lastSeenTime.set(f.id, time);
-            sessionReplayUids.add(f.id);
-        } else if (sessionReplayUids.has(f.id)) {
-            // This UID was previously confirmed as belonging to the replay
-            // session but just received a genuinely live (non-replay)
-            // update instead - e.g. an asset still reporting live position
-            // while an earlier window of its own history is being replayed.
-            // It no longer belongs to the session; release it so the newIds
-            // check below can hide it again, or it would stay visible -
-            // indistinguishable from replay content - for the rest of
-            // playback.
-            lastSeenTime.set(f.id, time);
-            sessionReplayUids.delete(f.id);
-        }
-    }
-
-    // Replay-origin features must never be hidden - even if their UID was
-    // already hidden as "live" (e.g. hidden at playback start, then updated
-    // by the replay itself), unhide it as soon as we confirm it belongs to
-    // this session.
-    const toUnhide = [...sessionReplayUids].filter((id) => hiddenLiveIds.includes(id));
-    if (toUnhide.length) {
-        FeatureVisibility.setFeaturesHidden(toUnhide, false);
-        hiddenLiveIds = hiddenLiveIds.filter((id) => !toUnhide.includes(id));
-    }
 
     // Same rule as hideLiveFeatures(): only track UIDs replay is newly
     // hiding here, so a feature already hidden for an unrelated reason
@@ -404,7 +365,7 @@ async function hideNewLiveFeatures() {
     // restoreLiveFeatures() at session end.
     const newIds = live
         .map((f) => f.id)
-        .filter((id) => id !== selfUid && !hiddenLiveIds.includes(id) && !sessionReplayUids.has(id) && !FeatureVisibility.isFeatureHidden(id));
+        .filter((id) => !isReplayCopy(id) && id !== selfUid && !hiddenLiveIds.includes(id) && !FeatureVisibility.isFeatureHidden(id));
     if (newIds.length) {
         FeatureVisibility.setFeaturesHidden(newIds, true);
         hiddenLiveIds.push(...newIds);
@@ -414,8 +375,17 @@ async function hideNewLiveFeatures() {
 function restoreLiveFeatures() {
     if (hiddenLiveIds.length) FeatureVisibility.setFeaturesHidden(hiddenLiveIds, false);
     hiddenLiveIds = [];
-    sessionReplayUids = new Set();
-    lastSeenTime = new Map();
+}
+
+async function clearReplayFeatures() {
+    const replayed = (await FeatureManager.list()).filter((f) => isReplayCopy(f.id));
+    for (const f of replayed) {
+        // Replayed copies carry no <archive/>, so this never touches the
+        // user's saved features; skipNetwork just makes that explicit.
+        await mapStore.worker.db.remove(f.id, { skipNetwork: true })
+            .catch((err: unknown) => console.warn(`Failed to clear replayed feature ${f.id}`, err));
+    }
+    hasReplayFeatures.value = false;
 }
 
 function showReplayBanner(name: string) {
@@ -477,7 +447,9 @@ async function startPlayback() {
     const evt = events.value.find((e) => e.id === selectedEventId.value);
     activeEventName.value = evt ? evt.name : 'Replay';
 
+    await clearReplayFeatures();
     await hideLiveFeatures();
+    hasReplayFeatures.value = true;
     showReplayBanner(activeEventName.value);
 
     const body = await std(`/api/replay/event/${selectedEventId.value}/play`, {
@@ -492,9 +464,8 @@ async function startPlayback() {
     pollHandle = setInterval(async () => {
         await pollStatus();
         // pollStatus() may have just ended the session (natural finish) and
-        // called restoreLiveFeatures(), which resets sessionReplayUids to
-        // empty. Calling hideNewLiveFeatures() right after would see no
-        // exemptions and immediately re-hide everything it just restored.
+        // called restoreLiveFeatures(). Calling hideNewLiveFeatures() right
+        // after would immediately re-hide everything it just restored.
         if (!session.value) return;
         await hideNewLiveFeatures();
     }, 1000);

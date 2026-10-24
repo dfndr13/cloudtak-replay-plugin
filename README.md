@@ -45,9 +45,10 @@ CloudTAK v13.109.3 through v13.113.0 (the `app/` layout).
 - Plays a recorded event back on demand — pause/resume, seek, adjustable
   speed (at start), filter by category — as a private preview visible only
   to the user running playback.
-- Distinguishes replay-sourced features from live traffic while playback
-  is running, and never feeds a replay back into a concurrently active
-  recording of a different session.
+- Keeps replayed features apart from live traffic (own `replay-` UIDs),
+  leaves them on the map after Stop until cleared, never saves them into the
+  user's own features, and never feeds a replay back into a concurrently
+  active recording.
 - Exports/imports recordings as portable JSON files so they can be shared
   between CloudTAK instances.
 
@@ -55,6 +56,32 @@ See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
+
+### v1.3.0
+
+Supports the same CloudTAK releases as v1.2.0 (v13.109.3 – v13.113.0).
+
+- **Replayed features get their own UIDs** (`replay-<uid>`, callsign +
+  " (replay)"). Before, a replayed asset that was also still reporting live
+  shared one map feature with its live copy: during playback it jumped
+  between the live and the replayed position, and on pause it disappeared.
+- **Playback never writes the user's saved features.** Replayed drawn
+  features arrived with `<archive/>`, so the browser saved them to the
+  user's profile features (bringing back deleted ones) and a replayed delete
+  deleted the real saved feature. Replayed copies now carry no
+  `<archive/>`.
+- **Replayed features stay on the map after Stop**, until the new **Clear
+  replay** button (or the next playback) removes them. They get a 24 h
+  stale; the player removes a copy itself when its recorded stale window
+  ends, so expiry during playback still matches the original session.
+- **Seek removes features that don't exist at the new point** (not created
+  yet, removed, expired, or filtered out). Before, they stayed on the map.
+- **One `removed` row per delete.** A delete reached the recorder twice
+  (the deleting tab, then the same tab handling the server's own sync
+  event), so each deleted feature got two identical rows.
+- Replayed copies are never recorded into a new recording.
+- New unit tests: `api/test/replay-player.test.ts` (installed by
+  `install.sh`), and two more in `api/test/replay-recorder.test.ts`.
 
 ### v1.2.0
 

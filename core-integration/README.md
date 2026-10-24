@@ -21,6 +21,7 @@ hand on a checkout that's diverged too far for `git apply` to manage).
 | `api/stateless/lib/retention/replay.ts` | `api/stateless/lib/retention/replay.ts` | New file. A `RetentionTask` (auto-discovered by `Retention.init()`'s directory scan — no wiring needed) that deletes `replay_events` older than `retention::replay::days` (default 10); `replay_cot` cascades via its `ON DELETE CASCADE` FK. |
 | `api/test/replay-retention.srv.test.ts` | `api/test/replay-retention.srv.test.ts` | New file. Integration test for the retention task above, using this repo's existing `Flight` test harness. Optional — only install it if this checkout runs its own test suite. |
 | `api/test/replay-recorder.test.ts` | `api/test/replay-recorder.test.ts` | New file. Unit tests for the recorder's duplicate checks (`contentHash`, one `removed` marker per delete). Optional, like the test above. |
+| `api/test/replay-player.test.ts` | `api/test/replay-player.test.ts` | New file. Unit tests for how the player turns a recorded CoT into its replayed copy (replay UID, links, callsign, no `<archive/>`). Optional, like the tests above. |
 
 ## Files this plugin patches
 

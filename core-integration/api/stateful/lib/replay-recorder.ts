@@ -78,6 +78,9 @@ export function contentHash(xml: string): string {
     return crypto.createHash('sha256').update(normalized, 'utf-8').digest('hex');
 }
 
+// recentHashes value after a removal marker (never a real sha256)
+const REMOVED = 'removed';
+
 export default class Recorder {
     config: Config;
     activeEvent: { id: number; name: string } | null = null;
@@ -207,11 +210,15 @@ export default class Recorder {
      */
     async recordRemoval(uid: string, source = 'authored'): Promise<void> {
         if (!this.activeEvent) return;
-        await this.ensureBootstrapped();
 
-        // Any future direct-write for this uid is a genuinely new state, not
-        // a duplicate of whatever it looked like before it was removed.
-        this.recentHashes.delete(uid);
+        // A delete arrives twice: from the tab that deleted the feature, then
+        // ~0.7 s later when that tab gets the server's own "feature deleted"
+        // sync event. Any later write for this uid is a new state (its hash
+        // won't match REMOVED), so a re-created feature records normally.
+        if (this.recentHashes.get(uid) === REMOVED) return;
+        this.recentHashes.set(uid, REMOVED);
+
+        await this.ensureBootstrapped();
 
         try {
             await this.config.pg.execute(sql`

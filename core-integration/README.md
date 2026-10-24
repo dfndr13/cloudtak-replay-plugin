@@ -20,7 +20,7 @@ hand on a checkout that's diverged too far for `git apply` to manage).
 | `api/stateless/routes/replay.ts` | `api/stateless/routes/replay.ts` | New file. All `/replay/*` HTTP routes: start/stop/status recording, direct-write capture routes, playback session control, export/import, delete. Recording-control routes 503 if `config.recorder` is undefined (standalone `api` mode — see top-level README's Requirements). |
 | `api/stateless/lib/retention/replay.ts` | `api/stateless/lib/retention/replay.ts` | New file. A `RetentionTask` (auto-discovered by `Retention.init()`'s directory scan — no wiring needed) that deletes `replay_events` older than `retention::replay::days` (default 10); `replay_cot` cascades via its `ON DELETE CASCADE` FK. |
 | `api/test/replay-retention.srv.test.ts` | `api/test/replay-retention.srv.test.ts` | New file. Integration test for the retention task above, using this repo's existing `Flight` test harness. Optional — only install it if this checkout runs its own test suite. |
-| `api/test/replay-recorder.test.ts` | `api/test/replay-recorder.test.ts` | New file. Unit test for the recorder's duplicate check (`contentHash`). Optional, like the test above. |
+| `api/test/replay-recorder.test.ts` | `api/test/replay-recorder.test.ts` | New file. Unit tests for the recorder's duplicate checks (`contentHash`, one `removed` marker per delete). Optional, like the test above. |
 
 ## Files this plugin patches
 

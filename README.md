@@ -57,6 +57,29 @@ write-up, including known issues.
 
 ## Changelog
 
+### v1.4.0 (not released yet)
+
+Supports the same CloudTAK releases as v1.3.0 (v13.109.3 – v13.113.0).
+
+**Added**
+- **KML export** (`.kmz`, `GET /replay/event/:id/export?format=kml`): moving
+  assets as timed `gx:Track`s (Google Earth's time slider plays the event and
+  draws each path), everything else as placemarks shown from when they were
+  recorded until their next update, removal or stale time; folders per
+  category plus "Drawn features"; colours by affiliation.
+- **CSV export** (`format=csv`): one row per update or removal with UTC
+  time, local time and time zone where the position was recorded, callsign,
+  UID, type, category, position, altitude (m/ft), speed (mph/kts), course,
+  source (live/drawn) and event (update/removed).
+- The panel's **Export** button is now a format list (KML, CSV, CloudTAK
+  file) with a **Download** button.
+- New module `api/stateless/lib/replay-export.ts` and unit tests
+  `api/test/replay-export.test.ts` (both installed by `install.sh`).
+
+**Changed**
+- The JSON export is unchanged and still the default (`format=json`); it's
+  the format Import reads.
+
 ### v1.3.0
 
 Supports the same CloudTAK releases as v1.2.0 (v13.109.3 – v13.113.0).

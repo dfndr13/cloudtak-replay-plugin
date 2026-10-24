@@ -27,9 +27,15 @@ for training and after-action review.
 - **Never touch saved features** — replayed copies carry no `<archive/>`,
   so the browser never saves them to the user's profile features and a
   replayed delete never deletes a real one.
-- **Export/import** a recorded event as a portable JSON file, so a
-  recording made on one CloudTAK instance can be shared and replayed on
-  another.
+- **Export** a recorded event as:
+  - **KML** (a `.kmz`) for Google Earth, ArcGIS or ATAK: moving assets are
+    timed tracks that play on Google Earth's time slider, drawn features
+    appear and disappear when they did; folders per category.
+  - **CSV** for Excel or reports: one row per update or removal with UTC
+    time, local time and time zone *where the position was recorded*,
+    callsign, type, position, altitude (m/ft), speed (mph/kts) and course.
+  - **CloudTAK file** (JSON), the only format **Import** reads, to move a
+    recording to another CloudTAK.
 
 Playback is a private preview: it re-publishes recorded CoT only to the
 requesting user's own browser session
@@ -181,6 +187,12 @@ window.
    and remove the banner. The replayed features stay on the map where
    playback left them.
 4. Click **Clear replay** to remove them.
+
+**Export a recorded event**
+- Select it in the dropdown, pick **KML**, **CSV** or **CloudTAK file** in
+  the format list below it and click **Download**. KML and CSV are for use outside CloudTAK and can't be
+  imported back. ATAK shows KML tracks as full paths (its time slider support
+  is limited).
 
 **Delete a recorded event**
 - Select it in the dropdown and click **Delete**, then confirm. This is

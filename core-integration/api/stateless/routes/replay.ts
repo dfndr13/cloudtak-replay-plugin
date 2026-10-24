@@ -15,6 +15,8 @@ import type ConfigStateless from '../config.js';
 import { CoTParser } from '@tak-ps/node-cot';
 import { bootstrapReplayTables } from '../../stateful/lib/replay-recorder.js';
 import Player from '../lib/replay-player.js';
+import { toSamples, buildCsv, buildKml } from '../lib/replay-export.js';
+import { ZipArchive } from '@archiver/archiver';
 
 // Event-scoped CoT recording/playback. Owns replay_events + replay_cot via
 // CREATE TABLE IF NOT EXISTS (config.pg is the raw Postgres handle, same
@@ -401,8 +403,16 @@ export default async function router(schema: Schema, config: ConfigStateless) {
     await schema.get('/replay/event/:eventid/export', {
         name: 'Export Event',
         group: 'Replay',
-        description: 'Download a recorded event as a portable JSON file to share with another CloudTAK instance',
+        description: `
+            Download a recorded event. format=json (default) is the portable file
+            for Import on another CloudTAK; kml (a .kmz: tracks play on Google
+            Earth's time slider) and csv (one row per update, UTC and local time)
+            are for use outside CloudTAK.
+        `,
         params: Type.Object({ eventid: Type.Integer() }),
+        query: Type.Object({
+            format: Type.Optional(Type.Union([Type.Literal('json'), Type.Literal('kml'), Type.Literal('csv')])),
+        }),
         res: Type.Any(),
     }, async (req, res) => {
         try {
@@ -421,7 +431,27 @@ export default async function router(schema: Schema, config: ConfigStateless) {
                 ORDER BY recorded_at ASC
             `) as unknown as ReplayCotExportRow[];
 
-            const filename = `replay-${event.name.replace(/[^A-Za-z0-9-]+/g, '_')}-${event.id}.json`;
+            const basename = `replay-${event.name.replace(/[^A-Za-z0-9-]+/g, '_')}-${event.id}`;
+
+            if (req.query.format === 'csv') {
+                res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename="${basename}.csv"`);
+                res.send(buildCsv(await toSamples(cotRows)));
+                return;
+            }
+
+            if (req.query.format === 'kml') {
+                const kml = buildKml(event, await toSamples(cotRows));
+                res.setHeader('Content-Type', 'application/vnd.google-earth.kmz');
+                res.setHeader('Content-Disposition', `attachment; filename="${basename}.kmz"`);
+                const archive = new ZipArchive({ zlib: { level: 9 } });
+                archive.pipe(res);
+                archive.append(Buffer.from(kml), { name: 'doc.kml' });
+                await archive.finalize();
+                return;
+            }
+
+            const filename = `${basename}.json`;
 
             res.setHeader('Content-Type', 'application/json');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

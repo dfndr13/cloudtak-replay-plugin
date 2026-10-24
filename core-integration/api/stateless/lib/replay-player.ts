@@ -14,7 +14,7 @@ import CoT, { CoTParser, ForceDelete } from '@tak-ps/node-cot';
 import type ConfigStateless from '../config.js';
 import { sql } from 'drizzle-orm';
 
-type ReplayCategory = 'aircraft' | 'uas' | 'ground' | 'maritime' | 'other';
+export type ReplayCategory = 'aircraft' | 'uas' | 'ground' | 'maritime' | 'other';
 
 // ReplayPanel.vue polls GET status every 1s for as long as its session is
 // active, so silence on status() is a reliable disconnect signal - covers
@@ -39,7 +39,7 @@ export function replayUid(uid: string): string {
     return REPLAY_PREFIX + uid;
 }
 
-function categorize(cotType: string, how?: string): ReplayCategory {
+export function categorize(cotType: string, how?: string): ReplayCategory {
     if (!cotType.startsWith('a-')) return 'other';
     const dim = cotType.split('-')[2];
 
@@ -57,7 +57,7 @@ function categorize(cotType: string, how?: string): ReplayCategory {
 // out of the same stored cot_xml already being parsed for time/stale below,
 // same regex-on-stored-XML pattern as computeStaleOffsetMs(), rather than
 // adding a column + migration for one attribute already sitting in the row.
-function extractHow(xml: string): string | undefined {
+export function extractHow(xml: string): string | undefined {
     const howMatch = xml.match(/\show="([^"]*)"/);
     return howMatch ? howMatch[1] : undefined;
 }
@@ -66,7 +66,7 @@ function extractHow(xml: string): string | undefined {
 // original stale window to decide whether a row has already expired as of
 // virtualNow (see the staleness check in publishStateAt), without duplicating
 // the same regex parsing twice.
-function computeStaleOffsetMs(xml: string): number {
+export function computeStaleOffsetMs(xml: string): number {
     const timeMatch = xml.match(/\stime="([^"]*)"/);
     const staleMatch = xml.match(/\sstale="([^"]*)"/);
 

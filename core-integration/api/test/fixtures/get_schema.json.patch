@@ -79,7 +79,7 @@ index 4bd8cfce7..6e0ea8d6f 100644
 +    },
 +    "GET /replay/event/:eventid/export": {
 +        "body": false,
-+        "query": false,
++        "query": true,
 +        "res": true
 +    },
 +    "DELETE /replay/event/:eventid": {

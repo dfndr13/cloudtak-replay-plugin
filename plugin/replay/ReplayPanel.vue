@@ -68,13 +68,31 @@
             </button>
 
             <div class='d-flex gap-2 mt-2'>
+                <select
+                    v-model='exportFormat'
+                    class='form-select form-select-sm'
+                    :disabled='!selectedEventId'
+                >
+                    <option value='kml'>
+                        KML (Google Earth, ArcGIS, ATAK)
+                    </option>
+                    <option value='csv'>
+                        CSV (Excel, reports)
+                    </option>
+                    <option value='json'>
+                        CloudTAK file (for Import)
+                    </option>
+                </select>
                 <button
-                    class='btn btn-sm btn-outline-secondary flex-fill'
+                    class='btn btn-sm btn-outline-primary'
                     :disabled='!selectedEventId'
                     @click='exportEvent'
                 >
-                    Export
+                    Download
                 </button>
+            </div>
+
+            <div class='d-flex gap-2 mt-2'>
                 <label class='btn btn-sm btn-outline-secondary flex-fill mb-0'>
                     Import
                     <input
@@ -225,6 +243,7 @@ const hasReplayFeatures = ref(false);
 function isReplayCopy(id: string): boolean {
     return id.startsWith(REPLAY_PREFIX);
 }
+const exportFormat = ref<'kml' | 'csv' | 'json'>('kml');
 const newEventName = ref('');
 const recording = reactive<{ active: boolean; event?: { id: number; name: string } }>({ active: false });
 
@@ -520,7 +539,7 @@ async function stopPlayback() {
 
 async function exportEvent() {
     if (!selectedEventId.value) return;
-    await std(`/api/replay/event/${selectedEventId.value}/export`, { download: true });
+    await std(`/api/replay/event/${selectedEventId.value}/export?format=${exportFormat.value}`, { download: true });
 }
 
 async function deleteEvent() {

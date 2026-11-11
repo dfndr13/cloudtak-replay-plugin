@@ -40,7 +40,7 @@ hand on a checkout that's diverged too far for `git apply` to manage).
 | `api/stateful/lib/connection-pool.ts.patch` | `api/stateful/lib/connection-pool.ts` | Wires a `Recorder` instance onto `ConnectionPool` and taps its `cots()` method so live/shared CoT traffic gets recorded when active — skipping CoTs tagged `opts.replay` so a running playback never feeds itself back into a concurrently active recording. Also tags every outgoing feature's `properties.replay` (explicitly, even when `false`, so a stale flag can't survive onto a UID that's now genuinely live) so the frontend can tell replayed CoT apart from live. |
 | `api/stateless/config.ts.patch` | `api/stateless/config.ts` | Adds an optional `recorder?: Recorder` field to `ConfigStateless`, carried in from the constructor/`.env()` opts — a direct reference to the co-located stateful process's `Recorder`, present only in combined `both` mode. |
 | `api/index.ts.patch` | `api/index.ts` | One-line addition at the `ConfigStateless.env()` call site: passes `recorder: stateful.conns.recorder` through when a stateful process exists in this deployment. |
-| `app/src/workers/atlas-database.ts.patch` | `app/src/workers/atlas-database.ts` | Imports `std` and adds `recordingActive` state (pushed from the main thread via Comlink, and re-checked once at Worker boot so a mid-recording page reload doesn't blind the capture) and direct-write hooks so drawn/authored features that never reach `ConnectionPool.cots()` — including Mission-linked ones, and deletions of them reported via TAK Server's Mission `REMOVE_CONTENT` change notification — still get captured. |
+| `app/src/workers/atlas-database.ts.patch` (v13.109.3 – v13.114.0), `….v13.114.1.patch` (v13.114.1 – v13.117.1), `….v13.117.2.patch` (v13.117.2 – v13.122.8) | `app/src/workers/atlas-database.ts` | Imports `std` and adds `recordingActive` state (pushed from the main thread via Comlink, and re-checked once at Worker boot so a mid-recording page reload doesn't blind the capture) and direct-write hooks so drawn/authored features that never reach `ConnectionPool.cots()` — including Mission-linked ones, and deletions of them reported via TAK Server's Mission `REMOVE_CONTENT` change notification — still get captured. |
 | `api/test/fixtures/get_schema.json.patch` | `api/test/fixtures/get_schema.json` | Adds the 17 `/replay/*` routes to the API schema fixture, so CloudTAK's `api/schema` test passes with the plugin installed. Appended at the end of the file, which is identical in every supported release. |
 
 ## Applying the patches
@@ -52,12 +52,18 @@ first, so a mismatch doesn't leave a half-applied tree):
 
 ```sh
 P=/path/to/cloudtak-replay-plugin/core-integration
-for f in $(cd "$P" && find . -name '*.patch' | sort); do git apply --check "$P/$f" || exit 1; done
-for f in $(cd "$P" && find . -name '*.patch' | sort); do git apply "$P/$f"; done
+for f in $(cd "$P" && find . -name '*.patch' ! -name '*.v[0-9]*.patch' | sort); do git apply --check "$P/$f" || exit 1; done
+for f in $(cd "$P" && find . -name '*.patch' ! -name '*.v[0-9]*.patch' | sort); do git apply "$P/$f"; done
 ```
 
-The patches are generated against CloudTAK v13.113.0 and apply cleanly to
-every release from v13.109.3 to v13.113.0. Most are additive; two
+That applies the main patches. On CloudTAK v13.114.1 or later, swap
+`atlas-database.ts.patch` for its variant: `atlas-database.ts.v13.114.1.patch`
+for v13.114.1 – v13.117.1, `atlas-database.ts.v13.117.2.patch` for
+v13.117.2 – v13.122.8 (`install.sh` picks the right one by itself).
+
+The main patches are generated against CloudTAK v13.113.0 and, with the
+`atlas-database.ts` variants above, apply cleanly to every release from
+v13.109.3 to v13.122.8. Most are additive; two
 (`hub/local.ts`, `tasks/retention/src/index.ts`) and the `std` import in
 `atlas-database.ts` change one existing line each. If one fails on a newer
 checkout, the surrounding code has likely moved on — diff the hunk context by

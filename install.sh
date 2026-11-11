@@ -27,15 +27,23 @@
 #   • app/src/workers/atlas-database.ts     - direct-write capture for drawn/
 #                                              authored features (incl. ones
 #                                              linked to a Mission) that never
-#                                              reach ConnectionPool.cots()
+#                                              reach ConnectionPool.cots().
+#                                              Upstream reworked this file twice,
+#                                              so it has three versions of the
+#                                              patch (see "Patch variants" below)
 #   • api/test/fixtures/get_schema.json     - adds the /replay/* routes to the
 #                                              API schema test fixture
 #
-# Supported CloudTAK: v13.109.3 through v13.113.0 (every release in that range
+# Supported CloudTAK: v13.109.3 through v13.122.8 (every release in that range
 # is checked). For older CloudTAK (the api/web layout, before 13.102) use
 # plugin v1.1.1 (verified on 13.69.0). Every patch is checked before any is applied, so a checkout
 # that doesn't match is left untouched. See core-integration/README.md for
 # exactly what each patch does and why.
+#
+# Patch variants: a core file whose upstream code moved can carry extra patch
+# files next to the main one, named <file>.v<first CloudTAK version>.patch
+# (e.g. atlas-database.ts.v13.114.1.patch). Install and --remove try the main
+# patch first, then each variant, and use the one that fits this checkout.
 #
 # IMPORTANT: this plugin requires CLOUDTAK_Server_Mode=both (the default in
 # CloudTAK's own docker-compose.yml). Recorder lives on the stateful
@@ -98,7 +106,7 @@ if [ ! -d "$CT_DIR/api" ]; then
     echo "ERROR: $CT_DIR does not look like a CloudTAK checkout (no api/ dir)." >&2
     exit 1
 fi
-if [ ! -d "$CT_DIR/.git" ]; then
+if [ ! -e "$CT_DIR/.git" ]; then   # a directory, or a file in a git worktree
     echo "ERROR: $CT_DIR is not a git working tree - the core-file patches need" >&2
     echo "       \`git apply\` to go in (and back out on --remove) cleanly." >&2
     exit 1
@@ -110,7 +118,7 @@ if [ "$DO_BUILD" -eq 1 ] && [ ! -f "$CT_DIR/docker-compose.yml" ]; then
 fi
 
 # CloudTAK 13.109.3+ is required: the web app lives in app/ (13.102+) and the
-# patches target 13.109.3 - 13.113.0.
+# patches target 13.109.3 - 13.122.8.
 if [ ! -d "$CT_DIR/api/stateless/routes" ] || [ ! -d "$CT_DIR/api/stateful/lib" ]; then
     echo "ERROR: this CloudTAK predates the 13.45 hub/api split (no api/stateless/routes"  >&2
     echo "       or api/stateful/lib). This plugin requires CloudTAK >= 13.109.3 — update CloudTAK first." >&2
@@ -170,6 +178,17 @@ for target in "${PATCHES_TARGET[@]}"; do
     PATCHES_PATCH+=("core-integration/$target.patch")
 done
 
+# The main patch for entry $1, then any <file>.v<version>.patch variants
+# (see "Patch variants" above), as absolute paths that exist.
+patch_candidates() {
+    local main="$REPO_DIR/${PATCHES_PATCH[$1]}" f
+    echo "$main"
+    for f in "${main%.patch}".v*.patch; do
+        [ -f "$f" ] && echo "$f"
+    done
+    return 0
+}
+
 echo "CloudTAK:  $CT_DIR"
 echo "Plugin:    $REPO_DIR"
 echo "Action:    $ACTION"
@@ -189,11 +208,17 @@ fi
 if [ "$ACTION" = "remove" ]; then
     # --- uninstall -----------------------------------------------------------------
     for (( i=${#PATCHES_PATCH[@]}-1; i>=0; i-- )); do
-        patchfile="$REPO_DIR/${PATCHES_PATCH[$i]}"
         target="$CT_DIR/${PATCHES_TARGET[$i]}"
         marker="${PATCHES_MARKER[$i]}"
         if [ -f "$target" ] && grep -qF "$marker" "$target"; then
-            if (cd "$CT_DIR" && git apply -R --check "$patchfile" 2>/dev/null); then
+            patchfile=""
+            while IFS= read -r cand; do
+                if (cd "$CT_DIR" && git apply -R --check "$cand" 2>/dev/null); then
+                    patchfile="$cand"
+                    break
+                fi
+            done < <(patch_candidates "$i")
+            if [ -n "$patchfile" ]; then
                 (cd "$CT_DIR" && git apply -R "$patchfile")
                 echo "Reversed patch: ${PATCHES_TARGET[$i]}"
             else
@@ -228,21 +253,29 @@ else
     # Check every patch before touching anything, so a checkout that doesn't
     # match is left exactly as it was instead of half-installed.
     PENDING=()
+    CHOSEN=()
     for i in "${!PATCHES_PATCH[@]}"; do
-        patchfile="$REPO_DIR/${PATCHES_PATCH[$i]}"
         target="$CT_DIR/${PATCHES_TARGET[$i]}"
         if [ -f "$target" ] && grep -qF "${PATCHES_MARKER[$i]}" "$target"; then
             continue
         fi
-        if ! (cd "$CT_DIR" && git apply --check "$patchfile" 2>/dev/null); then
+        patchfile=""
+        while IFS= read -r cand; do
+            if (cd "$CT_DIR" && git apply --check "$cand" 2>/dev/null); then
+                patchfile="$cand"
+                break
+            fi
+        done < <(patch_candidates "$i")
+        if [ -z "$patchfile" ]; then
             echo "ERROR: patch does not apply cleanly: ${PATCHES_TARGET[$i]}" >&2
-            echo "       Nothing was changed. This plugin supports CloudTAK v13.109.3 - v13.113.0;" >&2
-            echo "       this checkout has likely diverged around this file. Open $patchfile" >&2
+            echo "       Nothing was changed. This plugin supports CloudTAK v13.109.3 - v13.122.8;" >&2
+            echo "       this checkout has likely diverged around this file. Open $REPO_DIR/${PATCHES_PATCH[$i]}" >&2
             echo "       and re-apply the same additions by hand - core-integration/README.md" >&2
             echo "       explains what each hunk does." >&2
             exit 1
         fi
         PENDING+=("$i")
+        CHOSEN[$i]="$patchfile"
     done
 
     mkdir -p "$CT_DIR/app/plugins" "$CT_DIR/api/stateless/routes" \
@@ -287,8 +320,12 @@ else
             echo "Already patched: ${PATCHES_TARGET[$i]} (skipping)"
             continue
         fi
-        (cd "$CT_DIR" && git apply "$REPO_DIR/${PATCHES_PATCH[$i]}")
-        echo "Applied patch: ${PATCHES_TARGET[$i]}"
+        (cd "$CT_DIR" && git apply "${CHOSEN[$i]}")
+        if [ "${CHOSEN[$i]}" = "$REPO_DIR/${PATCHES_PATCH[$i]}" ]; then
+            echo "Applied patch: ${PATCHES_TARGET[$i]}"
+        else
+            echo "Applied patch: ${PATCHES_TARGET[$i]} (variant $(basename "${CHOSEN[$i]}"))"
+        fi
     done
 
     echo

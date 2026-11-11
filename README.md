@@ -7,7 +7,7 @@ after-action review.
 This repo is a **standalone packaging** of the plugin's source, meant as a
 clean reference/distribution point — it is not itself a runnable CloudTAK
 instance. It was developed against `dfpc-coe/CloudTAK`; this release supports
-CloudTAK v13.109.3 through v13.113.0 (the `app/` layout).
+CloudTAK v13.109.3 through v13.122.8 (the `app/` layout).
 
 ## What's in this repo
 
@@ -26,7 +26,7 @@ CloudTAK v13.109.3 through v13.113.0 (the `app/` layout).
 
 ## Requirements
 
-- CloudTAK v13.109.3 – v13.113.0. `install.sh` checks every patch against
+- CloudTAK v13.109.3 – v13.122.8. `install.sh` checks every patch against
   the checkout before changing anything and refuses (leaving the checkout
   untouched) if one doesn't apply. For older CloudTAK (the `api/web` layout,
   before 13.102) use plugin [v1.1.1](#v111) (verified on 13.69.0).
@@ -57,6 +57,47 @@ See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
+
+### v1.5.0
+
+Supports CloudTAK v13.109.3 – v13.122.8 (was v13.109.3 – v13.113.0). No
+change to what the plugin does; this release is about where it installs.
+
+**Added**
+- Two more versions of the `app/src/workers/atlas-database.ts` patch, for
+  the two times upstream reworked that file:
+  `atlas-database.ts.v13.114.1.patch` (v13.114.1 – v13.117.1, after
+  upstream added its offline `FeatureOutbox`) and
+  `atlas-database.ts.v13.117.2.patch` (v13.117.2 – v13.122.8, after
+  `remove()` was rewritten again). Same hooks as before: the two
+  `recordRemoval()` calls on delete, the direct-write calls on save, the
+  start-of-recording snapshot and the boot-time recording check.
+
+**Changed**
+- `install.sh` and `--remove` try the main patch first, then any
+  `<file>.v<version>.patch` variant, and use the one that fits the
+  checkout. The output names the variant used.
+- Supported range in `install.sh` raised to v13.109.3 – v13.122.8 (the
+  `Supported CloudTAK:` line, which the TAK Portal CloudTAK Marketplace
+  reads to decide whether to install).
+
+**Fixed**
+- CloudTAK v13.114.1 and later were refused ("patch does not apply
+  cleanly: app/src/workers/atlas-database.ts"), even though the other 12
+  patches applied.
+- `install.sh` refused a CloudTAK checkout that is a git worktree (it
+  expected `.git` to be a folder; in a worktree it's a file).
+
+Verified: on clean checkouts of every CloudTAK release from v13.109.3 to
+v13.122.8 (36 releases), install exits 0 with all 13 patches applied, a
+second install skips all 13, and `--remove` leaves the checkout exactly as
+it was. On v13.113.0, v13.114.2, v13.117.1, v13.117.2 and v13.122.8 (each
+patch version at least once): api `tsc` and lint, the replay unit tests
+(recorder, player, export), app `vue-tsc` and lint (plugin included) and
+the full app test suite all pass. Not re-run: the database-backed retention
+test (its patches are unchanged). The v13.117.2 variant is the
+same code a CloudTAK v13.121.1 server has run since Nov 8; a live
+record-and-playback test on it is still to do.
 
 ### v1.4.0
 

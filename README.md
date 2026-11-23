@@ -7,7 +7,7 @@ after-action review.
 This repo is a **standalone packaging** of the plugin's source, meant as a
 clean reference/distribution point — it is not itself a runnable CloudTAK
 instance. It was developed against `dfpc-coe/CloudTAK`; this release supports
-CloudTAK v13.109.3 through v13.122.8 (the `app/` layout).
+CloudTAK v13.109.3 through v13.128.0 (the `app/` layout).
 
 ## What's in this repo
 
@@ -26,7 +26,7 @@ CloudTAK v13.109.3 through v13.122.8 (the `app/` layout).
 
 ## Requirements
 
-- CloudTAK v13.109.3 – v13.122.8. `install.sh` checks every patch against
+- CloudTAK v13.109.3 – v13.128.0. `install.sh` checks every patch against
   the checkout before changing anything and refuses (leaving the checkout
   untouched) if one doesn't apply. For older CloudTAK (the `api/web` layout,
   before 13.102) use plugin [v1.1.1](#v111) (verified on 13.69.0).
@@ -57,6 +57,28 @@ See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
+
+### v1.5.2
+
+Supports CloudTAK v13.109.3 – v13.128.0 (was v13.109.3 – v13.122.8). No
+change to what the plugin does. Together with v1.5.1's lint fixes, this is
+the release to use on CloudTAK v13.124.0 and later.
+
+**Changed**
+- Supported range in `install.sh` raised to v13.109.3 – v13.128.0 (the
+  `Supported CloudTAK:` line, which the TAK Portal CloudTAK Marketplace
+  reads to decide whether to install). No patch changes: the
+  `atlas-database.ts.v13.117.2.patch` variant fits every release from
+  v13.117.2 to v13.128.0.
+
+Verified: on clean checkouts of every release from v13.123.0 to v13.128.0
+(8 releases) plus v13.122.8, install exits 0 with all 13 patches applied, a
+second install skips all 13, and `--remove` leaves the checkout exactly as
+it was. On v13.124.0 and v13.128.0 with the plugin installed: api OXLint
+(0 errors) and `tsc`, the replay unit tests (16/16), app lint (plugin
+included) and `vue-tsc` all pass. The full app test suite passes except
+for a few upstream tests that time out under load and fail the same way
+without the plugin (v13.124.0: 561/562; v13.128.0: 594/598).
 
 ### v1.5.1
 

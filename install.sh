@@ -34,7 +34,7 @@
 #   • api/test/fixtures/get_schema.json     - adds the /replay/* routes to the
 #                                              API schema test fixture
 #
-# Supported CloudTAK: v13.109.3 through v13.122.8 (every release in that range
+# Supported CloudTAK: v13.109.3 through v13.128.0 (every release in that range
 # is checked). For older CloudTAK (the api/web layout, before 13.102) use
 # plugin v1.1.1 (verified on 13.69.0). Every patch is checked before any is applied, so a checkout
 # that doesn't match is left untouched. See core-integration/README.md for
@@ -118,7 +118,7 @@ if [ "$DO_BUILD" -eq 1 ] && [ ! -f "$CT_DIR/docker-compose.yml" ]; then
 fi
 
 # CloudTAK 13.109.3+ is required: the web app lives in app/ (13.102+) and the
-# patches target 13.109.3 - 13.122.8.
+# patches target 13.109.3 - 13.128.0.
 if [ ! -d "$CT_DIR/api/stateless/routes" ] || [ ! -d "$CT_DIR/api/stateful/lib" ]; then
     echo "ERROR: this CloudTAK predates the 13.45 hub/api split (no api/stateless/routes"  >&2
     echo "       or api/stateful/lib). This plugin requires CloudTAK >= 13.109.3 — update CloudTAK first." >&2
@@ -268,7 +268,7 @@ else
         done < <(patch_candidates "$i")
         if [ -z "$patchfile" ]; then
             echo "ERROR: patch does not apply cleanly: ${PATCHES_TARGET[$i]}" >&2
-            echo "       Nothing was changed. This plugin supports CloudTAK v13.109.3 - v13.122.8;" >&2
+            echo "       Nothing was changed. This plugin supports CloudTAK v13.109.3 - v13.128.0;" >&2
             echo "       this checkout has likely diverged around this file. Open $REPO_DIR/${PATCHES_PATCH[$i]}" >&2
             echo "       and re-apply the same additions by hand - core-integration/README.md" >&2
             echo "       explains what each hunk does." >&2

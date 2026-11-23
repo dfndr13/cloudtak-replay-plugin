@@ -58,6 +58,21 @@ write-up, including known issues.
 
 ## Changelog
 
+### v1.5.1
+
+Supports CloudTAK v13.109.3 – v13.122.8 (unchanged). No change to what the
+plugin does; the server code now passes the stricter API lint that CloudTAK
+v13.124.0 and later run when building the image.
+
+**Fixed**
+- Seven lint errors in `replay-recorder.ts`, `replay-player.ts` and
+  `replay-export.ts` that fail CloudTAK's build from v13.124.0 on
+  (`oxlint --type-aware`): `await` on calls that aren't asynchronous
+  (`CoTParser.to_xml` / `from_xml`), two playback timer calls now marked as
+  intentionally not awaited, and export no longer risks writing
+  `[object Object]` when a feature's type or callsign isn't plain text (it
+  falls back to the recorded type or uid instead).
+
 ### v1.5.0
 
 Supports CloudTAK v13.109.3 – v13.122.8 (was v13.109.3 – v13.113.0). No

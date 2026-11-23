@@ -156,7 +156,7 @@ export default class Recorder {
             const uid = cot.uid();
             if (!uid) continue;
 
-            const xml = await CoTParser.to_xml(cot);
+            const xml = CoTParser.to_xml(cot);
             const sha = contentHash(xml);
 
             if (this.recentHashes.get(uid) === sha) continue;

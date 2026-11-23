@@ -177,7 +177,7 @@ export default class Player {
             liveUntil: new Map(),
         });
 
-        this.tick(sessionId);
+        void this.tick(sessionId);
         return sessionId;
     }
 
@@ -190,7 +190,7 @@ export default class Player {
         const s = this.sessions.get(sessionId);
         if (s) {
             s.paused = false;
-            this.tick(sessionId);
+            void this.tick(sessionId);
         }
     }
 
@@ -373,7 +373,7 @@ export default class Player {
                 const until = new Date(row.recorded_at).getTime() + staleOffsetMs;
                 if (until < now) continue;
 
-                cots.push(await CoTParser.from_xml(toReplayXml(row.cot_xml, s.uids, new Date())));
+                cots.push(CoTParser.from_xml(toReplayXml(row.cot_xml, s.uids, new Date())));
                 s.liveUntil.set(row.uid, until);
                 shown.add(row.uid);
             } catch (err) {

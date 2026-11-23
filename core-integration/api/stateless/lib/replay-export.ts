@@ -54,6 +54,14 @@ interface Sample {
 // CoT's "unknown" value for hae/ce/le, and often speed/course
 const UNKNOWN = 9999999;
 
+// A GeoJSON property as text: strings and numbers as-is, anything else
+// (missing, null, an object) as '' so callers fall back to the row's value.
+function textProp(v: unknown): string {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    return '';
+}
+
 function known(n: unknown): number | null {
     const v = Number(n);
     return n === undefined || n === null || n === '' || !Number.isFinite(v) || v === UNKNOWN ? null : v;
@@ -86,17 +94,17 @@ export async function toSamples(rows: ExportRow[]): Promise<Sample[]> {
         }
 
         try {
-            const feat = await CoTParser.to_geojson(await CoTParser.from_xml(row.cot_xml));
+            const feat = await CoTParser.to_geojson(CoTParser.from_xml(row.cot_xml));
             const props = feat.properties as Record<string, unknown>;
             const center = Array.isArray(props.center) ? props.center as number[] : [];
             // 0,0 is a client with no position fix, not a real location
             const fixed = !(Number(center[0]) === 0 && Number(center[1]) === 0);
-            const type = String(props.type || row.cot_type || '');
+            const type = textProp(props.type) || row.cot_type || '';
 
             const sample: Sample = {
                 uid: row.uid, time, kind: 'cot', drawn,
                 type,
-                callsign: String(props.callsign || row.uid),
+                callsign: textProp(props.callsign) || row.uid,
                 category: categorize(type, extractHow(row.cot_xml)),
                 geometry: fixed ? feat.geometry as Geometry : null,
                 lon: fixed ? known(center[0]) : null,

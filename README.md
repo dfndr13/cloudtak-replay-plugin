@@ -7,7 +7,7 @@ after-action review.
 This repo is a **standalone packaging** of the plugin's source, meant as a
 clean reference/distribution point — it is not itself a runnable CloudTAK
 instance. It was developed against `dfpc-coe/CloudTAK`; this release supports
-CloudTAK v13.109.3 through v13.128.0 (the `app/` layout).
+CloudTAK v13.109.3 through v14.0.1 (the `app/` layout).
 
 ## What's in this repo
 
@@ -26,7 +26,7 @@ CloudTAK v13.109.3 through v13.128.0 (the `app/` layout).
 
 ## Requirements
 
-- CloudTAK v13.109.3 – v13.128.0. `install.sh` checks every patch against
+- CloudTAK v13.109.3 – v14.0.1. `install.sh` checks every patch against
   the checkout before changing anything and refuses (leaving the checkout
   untouched) if one doesn't apply. For older CloudTAK (the `api/web` layout,
   before 13.102) use plugin [v1.1.1](#v111) (verified on 13.69.0).
@@ -57,6 +57,37 @@ See [`plugin/replay/README.md`](plugin/replay/README.md) for the full
 write-up, including known issues.
 
 ## Changelog
+
+### v1.5.3
+
+Supports CloudTAK v13.109.3 – v14.0.1 (was v13.109.3 – v13.128.0). No
+change to what the plugin does or to the files it exports.
+
+**Changed**
+- Supported range in `install.sh` raised to v13.109.3 – v14.0.1 (the
+  `Supported CloudTAK:` line, which the TAK Portal CloudTAK Marketplace
+  reads to decide whether to install).
+- CSV export no longer needs the `csv-stringify` package, which CloudTAK
+  v14.0.1 dropped from the API. A small built-in writer produces the same
+  output (fields are quoted only when they hold a comma, quote or line
+  break; inner quotes are doubled), checked byte for byte against
+  `csv-stringify` on commas, quotes, line breaks, empty fields and
+  non-ASCII text.
+
+**Added**
+- `atlas-database.ts.v14.0.1.patch`: v14.0.1 reworked Data Sync content
+  handling in `app/src/workers/atlas-database.ts`. The variant keeps
+  Replay's removal recording next to upstream's new cleanup of plain
+  copies. `install.sh` picks it by itself; v14.0.0 still uses the
+  `v13.117.2` variant.
+
+Verified: on clean checkouts of v14.0.1, v14.0.0, v13.128.0 and v13.109.3,
+install exits 0 with all 13 patches applied (the right `atlas-database`
+variant chosen on each), a second install skips all 13, and `--remove`
+leaves the checkout exactly as it was. With the plugin installed, on
+v14.0.1 and v13.128.0: api OXLint (0 errors), `tsc` and the replay unit
+tests (16/16) pass; on v14.0.1 app lint (plugin included) and `vue-tsc`
+pass. The full app test suite was not run for this release.
 
 ### v1.5.2
 

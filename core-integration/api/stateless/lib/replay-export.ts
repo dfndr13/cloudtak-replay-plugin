@@ -9,7 +9,6 @@
 
 import { CoTParser } from '@tak-ps/node-cot';
 import tzlookup from '@photostructure/tz-lookup';
-import { stringify } from 'csv-stringify/sync';
 import { categorize, extractHow, computeStaleOffsetMs } from './replay-player.js';
 import type { ReplayCategory } from './replay-player.js';
 
@@ -192,7 +191,18 @@ export function buildCsv(samples: Sample[]): string {
         ];
     });
 
-    return stringify([CSV_COLUMNS, ...records]);
+    return [CSV_COLUMNS, ...records]
+        .map((row) => row.map(csvField).join(','))
+        .join('\n') + '\n';
+}
+
+/**
+ * RFC 4180 field: quoted only when it holds a comma, quote or line break,
+ * with inner quotes doubled (same output as csv-stringify's defaults, which
+ * CloudTAK v14.0.1 no longer ships).
+ */
+function csvField(value: string): string {
+    return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
 // --- KML ---------------------------------------------------------------

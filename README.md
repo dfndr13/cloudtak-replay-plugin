@@ -58,6 +58,26 @@ write-up, including known issues.
 
 ## Changelog
 
+### v1.5.4
+
+Works with CloudTAK v13.109.3 – v14.0.1 (unchanged).
+
+#### Maintenance
+- The plugin folder now carries a `package.json` with the version
+  (`plugin/replay/package.json`, installed to `app/plugins/replay/`). The
+  TAK Portal CloudTAK Marketplace reads the version of an installed plugin
+  from there, so it can show which version is installed. The root
+  `package.json` stays for the latest-version check; keep both equal to
+  `VERSION`.
+
+#### Tested
+- Clean CloudTAK v13.128.0: install copies the file, a second install skips
+  every step, and `--remove` leaves the checkout exactly as it was.
+- Not run: lint, type checks and tests (no code changed).
+
+#### Upgrade notes
+- Nothing special.
+
 ### v1.5.3
 
 Supports CloudTAK v13.109.3 – v14.0.1 (was v13.109.3 – v13.128.0). No

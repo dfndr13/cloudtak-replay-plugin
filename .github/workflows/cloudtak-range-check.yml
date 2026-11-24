@@ -1,0 +1,58 @@
+# Daily check: is there a CloudTAK release newer than the range Replay supports?
+# Reads the first "Supported CloudTAK: vX through vY" line in install.sh (the line
+# the TAK Portal marketplace reads) and compares vY with the latest CloudTAK
+# release. If CloudTAK is newer, it opens one issue per new release (never a
+# duplicate). It only reports; it changes nothing in the repo.
+name: CloudTAK range check
+
+on:
+  schedule:
+    - cron: '17 13 * * *'   # daily, 13:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare latest CloudTAK release with the supported range
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          line=$(grep -m1 -E 'Supported CloudTAK:[[:space:]]*v?[0-9.]+[[:space:]]+through[[:space:]]+v?[0-9.]+' install.sh)
+          max=$(printf '%s\n' "$line" | sed -E 's/.*through[[:space:]]+v?([0-9.]+).*/\1/')
+          latest=$(gh api repos/dfpc-coe/CloudTAK/releases/latest --jq .tag_name)
+          latest=${latest#v}
+          echo "Supported up to v$max, latest CloudTAK v$latest"
+
+          # Newer only if it is not equal and sorts after max.
+          if [ "$latest" = "$max" ] || [ "$(printf '%s\n%s\n' "$max" "$latest" | sort -V | tail -n1)" = "$max" ]; then
+            echo "Within range, nothing to do."
+            exit 0
+          fi
+
+          title="CloudTAK v$latest is out (Replay supports up to v$max)"
+          if gh issue list --state open --search "\"CloudTAK v$latest is out\" in:title" --json number --jq 'length' | grep -qv '^0$'; then
+            echo "Issue already open for v$latest."
+            exit 0
+          fi
+
+          gh issue create --title "$title" --body "$(cat <<EOF
+          CloudTAK **v$latest** has been released: https://github.com/dfpc-coe/CloudTAK/releases/tag/v$latest
+
+          Replay's \`install.sh\` supports CloudTAK **up to v$max**. The TAK Portal marketplace treats Replay as unsupported on newer releases until the range is extended.
+
+          Next steps (by hand):
+          - Read the CloudTAK changelog between v$max and v$latest.
+          - Test install / reinstall / \`--remove\` and the lint, type checks and Replay tests on v$latest.
+          - If it passes, extend the range in a new Replay release (one version step).
+
+          _Opened automatically by the daily CloudTAK range check._
+          EOF
+          )"

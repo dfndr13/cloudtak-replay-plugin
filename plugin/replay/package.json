@@ -1,0 +1,6 @@
+{
+  "name": "cloudtak-replay-plugin",
+  "version": "1.5.4",
+  "private": true,
+  "description": "CloudTAK Replay plugin. Carries the installed version for the TAK Portal CloudTAK Marketplace; nothing is installed from it (keep it equal to VERSION)."
+}

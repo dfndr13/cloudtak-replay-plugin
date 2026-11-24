@@ -1,6 +1,6 @@
 {
   "name": "cloudtak-replay-plugin",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "private": true,
-  "description": "CloudTAK Replay plugin: record and play back CoT traffic. Installed with install.sh; this file only carries the version for the TAK Portal CloudTAK Marketplace (keep it equal to VERSION)."
+  "description": "CloudTAK Replay plugin: record and play back CoT traffic. Installed with install.sh; this file only carries the version for the TAK Portal CloudTAK Marketplace (keep it, and plugin/replay/package.json, equal to VERSION)."
 }
